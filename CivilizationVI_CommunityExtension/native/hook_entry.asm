@@ -1,9 +1,9 @@
 ; MSVC/MASM Win64 entry. Preserve caller R12 and the seven original arguments.
 ; The stack allocation and unwind metadata match the qualified native shim.
-EXTERN bridge_net:PROC
-PUBLIC bridge_net_entry
+EXTERN AIDistrictScoreNet:PROC
+PUBLIC AIDistrictScoreNetEntry
 .code
-bridge_net_entry PROC FRAME
+AIDistrictScoreNetEntry PROC FRAME
     sub rsp, 58h
     .allocstack 58h
     .endprolog
@@ -16,8 +16,8 @@ bridge_net_entry PROC FRAME
     mov [rsp + 38h], r12
     mov rax, [rsp + 58h]
     mov [rsp + 40h], rax
-    call bridge_net
+    call AIDistrictScoreNet
     add rsp, 58h
     ret
-bridge_net_entry ENDP
+AIDistrictScoreNetEntry ENDP
 END

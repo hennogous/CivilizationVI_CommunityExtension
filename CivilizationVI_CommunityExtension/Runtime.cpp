@@ -69,6 +69,44 @@ namespace Runtime {
 		Runtime::MainLogger->Info("MH initialized successfully.");
 	}
 
+	bool InstallHookGroup(std::span<const HookSpec> hooks) {
+		size_t created = 0;
+		auto rollback = [&] {
+			for (const auto& hook : hooks.first(created)) {
+				// RemoveHook disables a hook if ApplyQueued enabled it before
+				// reporting failure. Keep trampolines valid on cleanup failure.
+				if (auto status = MH_RemoveHook(hook.target); status != MH_OK) {
+					MainLogger->Error("Failed to remove {}: {}", hook.name, MH_StatusToString(status));
+				}
+				else {
+					*hook.original = nullptr;
+				}
+			}
+		};
+
+		for (const auto& hook : hooks) {
+			if (auto status = MH_CreateHook(hook.target, hook.detour, hook.original); status != MH_OK) {
+				rollback();
+				MainLogger->Error("Failed to create {}: {}", hook.name, MH_StatusToString(status));
+				return false;
+			}
+			++created;
+		}
+		for (const auto& hook : hooks) {
+			if (auto status = MH_QueueEnableHook(hook.target); status != MH_OK) {
+				rollback();
+				MainLogger->Error("Failed to queue {}: {}", hook.name, MH_StatusToString(status));
+				return false;
+			}
+		}
+		if (auto status = MH_ApplyQueued(); status != MH_OK) {
+			rollback();
+			MainLogger->Error("Failed to enable hook group: {}", MH_StatusToString(status));
+			return false;
+		}
+		return true;
+	}
+
 	// Call on dll exit
 	void Destroy() {
 		if (GameCore) {

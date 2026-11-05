@@ -15,6 +15,8 @@ namespace hks {
 	hksi_lua_pushintegerType pushinteger;
 	hksi_luaL_errorType error;
 	hksi_lua_pushfstringType pushfstring;
+	ConcatType concat;
+	CheckStackType checkstack;
 	CheckLStringType checklstring;
 	hksi_lua_touserdataType touserdata;
 	hksi_lua_getfieldType getfield;
@@ -55,6 +57,8 @@ namespace hks {
 		error = (hksi_luaL_errorType)GetProcAddress(hksDll, "?hksi_luaL_error@@YAHPEAUlua_State@@PEBDZZ");
 		checknumber = (luaL_checknumberType)GetProcAddress(hksDll, "?luaL_checknumber@@YANPEAUlua_State@@H@Z");
 		pushfstring = (hksi_lua_pushfstringType)GetProcAddress(hksDll, "?hksi_lua_pushfstring@@YAPEBDPEAUlua_State@@PEBDZZ");
+		concat = reinterpret_cast<ConcatType>(GetProcAddress(hksDll, "?hksi_lua_concat@@YAXPEAUlua_State@@H@Z"));
+		checkstack = reinterpret_cast<CheckStackType>(GetProcAddress(hksDll, "?luaL_checkstack@@YAXPEAUlua_State@@HPEBD@Z"));
 		checklstring = (CheckLStringType)GetProcAddress(hksDll, "?hksi_luaL_checklstring@@YAPEBDPEAUlua_State@@HPEA_K@Z");
 		pop = (PopType)GetProcAddress(hksDll, "?Pop@LuaState@LuaPlus@@QEAAXH@Z");
 		touserdata = (hksi_lua_touserdataType)GetProcAddress(hksDll, "?hksi_lua_touserdata@@YAPEAXPEAUlua_State@@H@Z");

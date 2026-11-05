@@ -38,6 +38,10 @@ namespace hks {
 	extern hksi_luaL_errorType error;
 	typedef char const* (__cdecl* hksi_lua_pushfstringType)(lua_State*, char const*, ...);
 	extern hksi_lua_pushfstringType pushfstring;
+	using ConcatType = void(__cdecl*)(lua_State*, int);
+	extern ConcatType concat;
+	using CheckStackType = void(__cdecl*)(lua_State*, int, const char*);
+	extern CheckStackType checkstack;
 	typedef char const* (__cdecl* CheckLStringType)(lua_State*, int, unsigned __int64*);
 	extern CheckLStringType checklstring;
 	typedef void* (__cdecl* hksi_lua_touserdataType)(lua_State*, int);

@@ -5,30 +5,29 @@ numeric player/city/district/plot adjustments through gameplay Lua. CE applies
 qualified adjustments to fresh native outputs and records diagnostic observations.
 It contains no mod-specific adjacency rules, construction orders or subsidies.
 
-This is a port to `develop` with its own bounded MSVC/runtime qualification
-record below. The earlier master-based prototype's results remain separate.
-Broader compatibility and final contribution scope still need review; this is
-not a released CE API or an upstream acceptance claim.
+This development branch follows CE's C++ module, Runtime hook and HavokScript
+binding conventions. It adds an optional late write to the earlier score API.
+The prior build's qualification is retained separately below. Upstream review,
+broader compatibility and release remain separate.
 
 ## Reviewer walkthrough
 
 Read the integration in this order:
 
-1. `Main.cpp` calls Initialize once, registers bindings for gameplay states and
-   resets policy at context boundaries. Upstream develop's lifecycle remains in
-   charge; this module never creates a second loader or Lua VM.
-2. `install_hooks` qualifies the original image and public HKS exports before
-   installing hooks. `hook_entry.asm` preserves the NetValue caller's R12 row
-   and original seven arguments, with Win64 stack/unwind metadata.
-3. `l_begin` / `l_allow` / `l_entry` construct staging. `l_commit` is the only
-   publication point; `bridge_net` copies one admitted entry before calling the
-   original routine and checks its generation again before writing the output.
-4. The three `hook_*` monitors call originals and journal numeric observations.
-   `l_status` formats under its shared lock; `l_trace_read` copies a bounded page
-   and formats after releasing the lock. Both push HKS values outside the lock.
-5. `reset_policy` retires future callbacks without claiming to roll back native
-   caches/requests. The isolated self-test exercises synthetic data, not worker
-   scheduling or the current develop integration.
+1. `Main.cpp` calls `AI::DistrictScores::Create` once, registers the gameplay
+   Lua bindings and retires the policy at context boundaries.
+2. `AIDistrictScores.cpp` qualifies the original image and delegates grouped
+   hook installation to `Runtime::InstallHookGroup`. Runtime creates all
+   trampolines before enabling any hook and rolls back this group's targets
+   on failure. `hook_entry.asm` preserves the NetValue caller's R12 row and
+   original seven arguments, with Win64 stack and unwind metadata.
+3. Lua stages a table using Begin, Allow and Entry or LateEntry. Commit
+   publishes it under the policy lock. The early hook preserves the original
+   NetValue result pointer. The late hook checks the cache around aggregation.
+   Both recheck the publication generation after the original routine.
+4. The bounded journal records write attempts and the cache, winner and
+   plot-specific present value. Hooks never call HKS. Lua functions release
+   lock guards before invoking HKS, which can exit via longjmp.
 
 The RVAs and layouts were recovered from the pinned Windows XP2 disassembly and
 corroborated by the earlier four-hook prototype. They are not cross-platform CE
@@ -38,22 +37,23 @@ struct definitions. Relevant native contracts are:
 |---|---|
 | `52a440` | NetValue returns the caller's int32 output pointer; other arguments pass through unchanged. |
 | `3e30be` | Ordinary caller return address; R12 identifies its plot-analysis row. Other NetValue callers are not adjusted. |
-| `3dfee0` | CalculateDistrictValues(this) returns void; observe completed cache only. |
+| `3dfee0` | CalculateDistrictValues(this) returns void. Only the qualified caller may apply late entries. |
+| `3e293c` / `3e2941` | DoTurnActivate's call to aggregation and its return. Verify the call target and observe completion before district selection. |
 | `3e4a50` | GetBestDistrict(this, int32 xy[2]) returns district index, or -1 with no valid coordinates. |
 | `3e7f40` | PresentValueOf(this, int32 *out, district, optional plot) returns out; only explicit-plot calls are traced. |
 | `5bdac0` | RegisterScriptData prefix is verified before CE modifies it; this module does not detour it. |
 
-`observe_enter`/`observe_cache` document the associated CityBuild, City and row
-offsets. Hash, prefix and span checks are necessary bounds, not a substitute for
-native object lifetime. A changed GameCore requires requalifying ABI, call-site
-register use and every layout offset, rather than merely changing a hash.
+Named function addresses and field offsets live in `target_identity.h`. The
+late matrix and row alias were verified in the
+[late placement replay](https://hennogous.github.io/Henno-Mods/ai/sources/project/docs/research/mods/csc-ai-late-placement-20261105).
+A changed GameCore requires requalifying ABI, call-site register use and layout.
+The game owns every pointer. Bounds checks alone cannot guarantee lifetime.
 
 ## Existing project integration
 
-Use CE's existing Visual Studio solution and dependency setup. The added source
-is compiled as C11 by v143, the Win64 shim uses MSVC's MASM customization, and
-both x64 configurations link the Windows SDK `Bcrypt.lib`. The module reuses CE's
-existing MinHook dependency. No additional build system or player runtime is used.
+Use CE's existing Visual Studio solution and dependency setup. The feature
+builds with CE's C++20 settings. The Win64 shim uses the MASM customization, and
+both x64 configurations link the Windows SDK `Bcrypt.lib`.
 
 Initialize after CE's HavokScript/MinHook setup and before its registration hooks
 alter the qualified image. Register bindings in each gameplay Lua state. Reset
@@ -62,10 +62,9 @@ The existing develop `std::call_once`, logger, export layout and destroy forward
 are retained. Failure disables this capability, rather than silently providing
 an unqualified score consumer.
 
-The opaque Lua-state interface deliberately resolves the required public HKS
-exports independently. The JSON helper uses bounded 240-byte literal fragments,
-`luaL_checkstack` and incremental `hksi_lua_concat`, avoiding the shipped
-formatter's 511-byte payload limit. No worker hook invokes HKS or gameplay APIs.
+The feature uses CE's typed HavokScript imports and `PushLuaMethod`. The JSON
+helper uses bounded 240-byte literal fragments, `luaL_checkstack` and incremental
+`hksi_lua_concat` to stay within the shipped formatter's 511-byte limit.
 
 ## Qualified native target
 
@@ -78,7 +77,7 @@ Image size 12976128
 ```
 
 Initialization checks the original file hash, loaded metadata, all four hook
-prefixes and the registration prefix. `target_identity.h` contains qualification
+prefixes, the registration prefix and the aggregation caller's relative CALL. `target_identity.h` contains qualification
 metadata and prefixes. No GameCore DLL is bundled. Other builds/platforms are
 outside this contract.
 
@@ -92,7 +91,8 @@ any partial/rejected publication.
 |---|---|---|
 | `Begin` | version, width, height, districtCount | Disable old policy and open empty staging. |
 | `Allow` | playerId | Admit one original AI identity. |
-| `Entry` | playerId, cityId, districtIndex, plotIndex, deltaQ8 | Add a distinct pair adjustment. |
+| `Entry` | playerId, cityId, districtIndex, plotIndex, deltaQ8 | Add an early NetValue adjustment. |
+| `LateEntry` | playerId, cityId, districtIndex, plotIndex, expectedBeforeQ8, expectedFinalQ8, deltaQ8 | Add an adjustment after building aggregation. |
 | `Commit` | none | Publish the complete staged table atomically. |
 | `Disable` | none | Retire policy/staging and advance generation. |
 | `Status` | none | JSON readiness, counters, samples and trace metadata. |
@@ -102,7 +102,7 @@ any partial/rejected publication.
 Argument conversion occurs before any lock: HKS may longjmp on a bad argument.
 Consumers must catch that error and call Disable. Once conversion succeeds,
 Begin retires the current policy before range/version validation. A rejected
-Allow or Entry poisons staging; Commit rejects a partial batch or any native
+Allow, Entry or LateEntry poisons staging; Commit rejects a partial batch or any native
 fault. Only context reset clears faults. Disable retains the published version
 and journal; Commit/reset clear the journal. This distinction matters when
 harvesting evidence or replacing a rejected publication.
@@ -110,7 +110,7 @@ harvesting evidence or replacing a rejected publication.
 Versions increase within a context. Width/height are 1-256; districtCount is
 1-4096 and covers the highest native index plus one. Player IDs are 0-63, city IDs
 nonnegative, districts 1 through districtCount-1, plots zero-based y*width+x.
-At most 4096 unique entries are admitted. Capture original human/AI roles before
+At most 4096 unique pairs are admitted across both entry methods. Capture original human/AI roles before
 autoplay changes them; the native allowlist does not discover original humans.
 
 Deltas are signed Q8 utility units (256 Q8 = 1 utility), not yields or build orders.
@@ -120,18 +120,38 @@ Deductions clamp at -1048576 without raising a base already at/below that floor.
 Unsafe arithmetic, including results above INT_MAX/2, is rejected unchanged.
 These inherited diagnostic bounds are not recommended tuning weights.
 
+### Late score contract
+
+LateEntry uses the same Begin, Allow and Commit transaction and write budget.
+The expected scores are the pair's positive values at aggregation entry and
+return, before the CE delta. The final native value must be at least the entry
+value, and the adjusted result must remain positive and within the existing
+numeric ceiling. A pair can appear once, through either Entry or LateEntry.
+
+The late hook admits only a non-center, owned, district-eligible, unreserved row
+whose row scores alias the writable matrix. It checks the expected entry value
+before native aggregation, then rechecks row identity, reservation, matrix,
+finished value and publication generation before the write. A mismatched
+calculation keeps its native value. A new native calculation may independently
+qualify again. CE leaves the building forecast and native candidate eligibility
+alone. The consumer supplies the expected values and a delta justified by its
+own evidence. This API adds no building-component query or Lua worker callback.
+
 ## Diagnostics and lifetime
 
-The NetValue hook preserves native arguments and returned output identity. Three
-typed read-only hooks record final-cache, GetBestDistrict and plot-specific
-PresentValue observations. No policy runs in these callbacks. Cache/PV records
-cover published pairs; a best record can show another district in a scoped city.
+The NetValue hook preserves native arguments and returned output identity.
+The aggregation hook records the cache after any late write. The winner and
+plot-specific PresentValue readers are read-only. Cache and PresentValue records
+cover published pairs. A best record can show another district in the city.
 
 Status ABI1 retains the first 64 changed samples and exposes trace_count,
-trace_capacity (16384) and active. Trace kinds are net/cache/best/pv. Each record
+trace_capacity (16384) and active. Trace kinds are net/cache/best/pv/late. Each record
 contains generation/version, player/city/district/plot, base/result, reason and
 eligibility. Net reasons: 0 adjusted, 2 protected, 3 arithmetic rejected,
-4 write budget exhausted. A best district/plot of -1 reports no winner.
+4 write budget exhausted. Late records use reason 0 for a write and 5/6 for
+an entry/final score mismatch. Their base/result fields report the finished
+native and resulting scores. Invalid layout or reservation skips the write.
+A best district/plot of -1 reports no winner.
 
 TraceRead offsets are zero-based; limits are 1-64. JSON includes generation,
 version, total, offset, next, stale and records. A generation mismatch returns an
@@ -146,28 +166,22 @@ one global publisher per context, with no per-mod ownership token; multiple
 consuming mods must coordinate. Large-world performance and a composable
 multi-consumer API remain review topics rather than implicit guarantees.
 
-The SRW lock and generation fence prevent older admitted calls from writing or
+The policy lock and generation fence prevent older admitted calls from writing or
 appending after replacement/reset. This does not make an entire analysis pass
 atomic, cancel old requests or remove cached influence. Policy is not serialized;
 a consuming mod must reconstruct it after loading a save. The carrier is pinned before hooks become active and remains resident until
 process exit. Live FreeLibrary unload is intentionally unsupported; there is no
 hook-removal/drain protocol. Multiplayer and general unload safety are unqualified.
 
-`CE_AI_DISTRICT_SCORES_TEST` enables an isolated 36-check native self-test entry,
-`CE_AIDistrictScoresSelfTest`, absent from normal builds. It uses synthetic
-buffers/stub originals and exercises arithmetic, all four hook families, journal
-paging, reset and bounded HKS string transport without loading Civ. Passing the
-old build's tests is not a substitute for compiling/running this port.
-
 ### Reproduce the isolated checks
 
-`tests/selftest.c` supplies abort-if-called MinHook and assembly-entry stubs.
-A test that unexpectedly initializes hooks therefore fails immediately instead
-of loading Civ. This driver is not included in the normal DLL project.
+The optional self-test uses synthetic CityBuild buffers and original routines.
+It checks both score phases, refusals, generation retirement, JSON paging and
+the shared Runtime helper's create/queue/apply failure paths with MinHook stubs.
+The test cannot validate actual native memory layout, the MASM entry or Lua
+lifetime in a running game.
 
-After installing the supported toolchain, open Developer PowerShell for VS2022
-with the **x64 target environment**, in the DLL project directory (the one
-containing Main.cpp), and build in scratch:
+Open an x64 Developer PowerShell for VS2022 in the DLL project directory.
 
 ```powershell
 if ($env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw 'Use an x64 Developer PowerShell' }
@@ -176,25 +190,24 @@ $ceTestOutput = Join-Path $env:TEMP 'CE-score-selftest'
 New-Item -ItemType Directory -Force -Path $ceTestOutput | Out-Null
 Push-Location $ceTestOutput
 try {
-    cl.exe /nologo /TC /std:c11 /DCE_AI_DISTRICT_SCORES_TEST `
-        "/I$ceSource\include" "$ceSource\native\AIDistrictScores.c" `
-        "$ceSource\native\tests\selftest.c" /Fe:ce-score-selftest.exe /link Bcrypt.lib
+    cl.exe /nologo /O2 /Gy /EHsc /std:c++20 /DCE_AI_DISTRICT_SCORES_TEST /D_CRT_SECURE_NO_WARNINGS `
+        "/I$ceSource" "/I$ceSource\include" "$ceSource\AIDistrictScores.cpp" `
+        "$ceSource\native\tests\selftest.cpp" "$ceSource\Runtime.cpp" "$ceSource\HavokScript.cpp" `
+        /Fe:ce-score-selftest.exe /link /OPT:REF /NODEFAULTLIB:libMinHook.x64.lib bcrypt.lib user32.lib
     if ($LASTEXITCODE -ne 0) { throw 'Self-test compilation failed' }
     .\ce-score-selftest.exe
     if ($LASTEXITCODE -ne 0) { throw 'Self-test checks failed' }
 } finally { Pop-Location }
 ```
 
-Expected output is `CE_AIDistrictScoresSelfTest=36`, with exit0. The recipe was
-executed successfully with x64 MSVC14.44.35207 C11 on 5 November 2026. Synthetic
-checks do not execute the real MASM shim or establish a working full DLL, hooks,
-game lifecycle or multiplayer safety; those require separate evidence.
+Expected results are 50 district-score checks and four hook-group checks.
+The three failure-path diagnostics are expected in the isolated host.
 
-## Develop qualification checkpoint — 5 November 2026
+## Earlier C port qualification checkpoint — 5 November 2026
 
 Tested implementation: commit `87f48fc7878d00851279bccbc9dd30cfe147470b`, based on
-upstream develop `2986a746b396eb93aad14f9afffb043a09c2c489`. This documentation
-follow-up changes no compiled source or project input.
+upstream develop `2986a746b396eb93aad14f9afffb043a09c2c489`. The results in
+this section apply to that C implementation.
 
 - Existing Release/x64 VCXPROJ builds with VS2022/MSVC14.44.35207, SDK26100 and
   pinned vcpkg dependencies. Unmodified upstream builds in the same environment;

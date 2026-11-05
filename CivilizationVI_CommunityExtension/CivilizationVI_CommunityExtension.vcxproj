@@ -97,12 +97,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="native\AIDistrictScores.c">
-      <CompileAs>CompileAsC</CompileAs>
-      <LanguageStandard />
-      <LanguageStandard_C>stdc11</LanguageStandard_C>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
+    <ClCompile Include="AIDistrictScores.cpp" />
     <MASM Include="native\hook_entry.asm" />
     <ClCompile Include="AI.cpp" />
     <ClCompile Include="City.cpp" />
@@ -141,7 +136,7 @@
     <ClCompile Include="UnitManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="native\AIDistrictScores.h" />
+    <ClInclude Include="AIDistrictScores.h" />
     <ClInclude Include="native\target_identity.h" />
     <ClInclude Include="AI.h" />
     <ClInclude Include="City.h" />

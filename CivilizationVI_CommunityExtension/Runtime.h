@@ -4,6 +4,7 @@
 #include <iostream>
 #include "capstone/capstone.h"
 #include "Log.h"
+#include <span>
 
 namespace Runtime {
 	extern HMODULE GameCore;
@@ -55,6 +56,24 @@ namespace Runtime {
 			Runtime::MainLogger->Info("Failed to enable hook! {}", MH_StatusToString(status));
 		}
 	}
+
+	// Use for related hooks that must have valid trampolines before any detour
+	// can execute. Install during serialized Runtime initialization, with no
+	// other queued MinHook operations. Failure rolls back this group's hooks.
+	struct HookSpec {
+		const char* name;
+		LPVOID target;
+		LPVOID detour;
+		LPVOID* original;
+	};
+
+	template <typename Function>
+	HookSpec DescribeHook(const char* name, Function* target, Function* detour, Function** original) {
+		return {name, reinterpret_cast<LPVOID>(target), reinterpret_cast<LPVOID>(detour),
+			reinterpret_cast<LPVOID*>(original)};
+	}
+
+	bool InstallHookGroup(std::span<const HookSpec> hooks);
 
 	extern void InitConsole();
 	extern void CloseConsole();
