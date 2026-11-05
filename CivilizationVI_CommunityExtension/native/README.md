@@ -198,23 +198,28 @@ follow-up changes no compiled source or project input.
 
 - Existing Release/x64 VCXPROJ builds with VS2022/MSVC14.44.35207, SDK26100 and
   pinned vcpkg dependencies. Unmodified upstream builds in the same environment;
-  each reports the same144 warnings and zero errors. No alternate CE builder or
+  each reports the same 144 warnings and zero errors. No alternate CE builder or
   source workaround is part of the contribution.
 - Feature DLL SHA-256:
   `b1090682fc6c964d077c36efe4dcbac6693d6bf83f9da08b5ad4c0f6e77d139b`.
-  All157 export contracts match upstream; independent static checks cover actual
+  All 157 export contracts match upstream; independent static checks cover actual
   imports, compiled guards/bindings/lifecycle, the MASM shim and its unwind data.
-- A fresh isolated CSC/Lua test completed Online100, off-context1–2 and an exact
-  saved6 reload, using the shared controller. All101 Lua/Python plan comparisons
-  match across100 publications. All27,775 journal records audit:62 increases,
+- A fresh isolated CSC/Lua test reached turn 100 on Online speed, checked an
+  observation-only context at turns 1–2, and reloaded the exact save at turn 6,
+  using the shared controller. All 101 Lua/Python plan comparisons match across
+  100 publications. All 27,775 journal records pass the audit: 62 increases,
   13,746 deductions, all four trace families, zero reported native API faults,
   no original-human trace and read-only diagnostic outputs.
-- Supported exit0, exact153 subscription preferences, source/package inventories
+- Normal supported exit (code 0), all 153 subscription preferences, source/package inventories
   and the previous development-package restoration are verified. No Frida,
   Python policy publisher, district orders or grants were used.
 
 The [develop qualification report](https://hennogous.github.io/Henno-Mods/ai/sources/project/docs/research/mods/csc-ce-develop-port-20261105)
 identifies the build/native receipts, exact target, test setup and limitations.
+The zero-fault count refers to the API and policy. The game logs also contain
+duplicate CurrentClickouts localization errors; the report separates new lines
+from the pre-run prefix. No general clean-log or attribution claim is made.
+
 This establishes the bounded method on the pinned Windows target, not better AI
 quality, a controlled comparison across CSC revisions, Debug, multiplayer,
 other CE consumers, live DLL unloading or actual Workshop subscription.
