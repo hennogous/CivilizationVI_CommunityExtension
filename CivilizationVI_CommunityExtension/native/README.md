@@ -158,6 +158,37 @@ buffers/stub originals and exercises arithmetic, all four hook families, journal
 paging, reset and bounded HKS string transport without loading Civ. Passing the
 old build's tests is not a substitute for compiling/running this port.
 
+### Reproduce the isolated checks
+
+`tests/selftest.c` supplies abort-if-called MinHook and assembly-entry stubs.
+A test that unexpectedly initializes hooks therefore fails immediately instead
+of loading Civ. This driver is not included in the normal DLL project.
+
+After installing the supported toolchain, open Developer PowerShell for VS2022
+with the **x64 target environment**, in the DLL project directory (the one
+containing Main.cpp), and build in scratch:
+
+```powershell
+if ($env:VSCMD_ARG_TGT_ARCH -ne 'x64') { throw 'Use an x64 Developer PowerShell' }
+$ceSource = (Resolve-Path .).Path
+$ceTestOutput = Join-Path $env:TEMP 'CE-score-selftest'
+New-Item -ItemType Directory -Force -Path $ceTestOutput | Out-Null
+Push-Location $ceTestOutput
+try {
+    cl.exe /nologo /TC /std:c11 /DCE_AI_DISTRICT_SCORES_TEST `
+        "/I$ceSource\include" "$ceSource\native\AIDistrictScores.c" `
+        "$ceSource\native\tests\selftest.c" /Fe:ce-score-selftest.exe /link Bcrypt.lib
+    if ($LASTEXITCODE -ne 0) { throw 'Self-test compilation failed' }
+    .\ce-score-selftest.exe
+    if ($LASTEXITCODE -ne 0) { throw 'Self-test checks failed' }
+} finally { Pop-Location }
+```
+
+Expected output is `CE_AIDistrictScoresSelfTest=36`, with exit0. The command above
+is a supported-toolchain recipe pending execution, not an MSVC qualification
+claim. These synthetic checks also do not execute the real MASM shim or establish
+a working full CE DLL, hook installation, game lifecycle or multiplayer safety.
+
 The earlier prototype's evidence is preserved in the [qualification report](https://hennogous.github.io/Henno-Mods/ai/sources/project/docs/research/mods/csc-ce-policy-parity-20261104).
 It explains the recovered signatures and actual prior runtime observations; it
 is not a test receipt for this develop port. Supported MSVC/full-DLL and fresh
