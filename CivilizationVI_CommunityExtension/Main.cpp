@@ -28,6 +28,7 @@
 #include "CivMap.h"
 #include "Rules.h"
 #include "ForgeUI.h"
+#include "native/AIDistrictScores.h"
 
 static std::once_flag g_initFlag;
 static bool g_consoleAllocated = false;
@@ -91,6 +92,7 @@ static void Hook_RegisterScriptData(hks::lua_State* L) {
     Runtime::MainLogger->Info("Registering lua globals!");
 
     PushSharedGlobals(L);
+    CE_AIDistrictScoresRegisterLua(L);
     CCallWithErrorHandling(L, CityTradeManager::Register, NULL);
     CCallWithErrorHandling(L, CultureManager::Register, NULL);
     CCallWithErrorHandling(L, EmergencyManager::Register, NULL);
@@ -199,6 +201,11 @@ static void InitializeCommunityExtension() {
     // Do stuff to the game
     Runtime::InitMinHook();
     hks::InitHavokScript();
+    // Qualify the original image before CE's registration detours modify it.
+    // Failure leaves only this optional capability unavailable.
+    if (!CE_AIDistrictScoresInitialize(Runtime::GameCore)) {
+        Runtime::MainLogger->Warn("District-score capability unavailable; its policy remains disabled.");
+    }
     InitHooks();
 }
 
@@ -225,6 +232,9 @@ extern "C" {
     __declspec(dllexport) void* __cdecl DllCreateGameContext(void) {
         std::call_once(g_initFlag, InitializeCommunityExtension);
 
+        // Policy is context-local even though hooks are initialized once.
+        CE_AIDistrictScoresReset();
+
         // Normal game stuff happens
         return base_DllCreateGameContext();
     }
@@ -240,6 +250,7 @@ extern "C" {
     // eventually landing on creating a new WINAPI thread which immediately started loading the original GameCore
     // into memory. The old solution is a race condition.
     __declspec(dllexport) void __cdecl DllDestroyGameContext(void* _) {
+        CE_AIDistrictScoresReset();
         base_DllDestroyGameContext(_);
     }
 }
