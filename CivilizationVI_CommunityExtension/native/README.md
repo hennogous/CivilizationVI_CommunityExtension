@@ -5,9 +5,10 @@ numeric player/city/district/plot adjustments through gameplay Lua. CE applies
 qualified adjustments to fresh native outputs and records diagnostic observations.
 It contains no mod-specific adjacency rules, construction orders or subsidies.
 
-This is a source port to `develop`; the earlier master-based prototype's runtime
-results do **not** qualify this develop integration. Build, native lifecycle and
-mod compatibility must be checked again before a release or upstream proposal.
+This is a port to `develop` with its own bounded MSVC/runtime qualification
+record below. The earlier master-based prototype's results remain separate.
+Broader compatibility and final contribution scope still need review; this is
+not a released CE API or an upstream acceptance claim.
 
 ## Reviewer walkthrough
 
@@ -184,12 +185,41 @@ try {
 } finally { Pop-Location }
 ```
 
-Expected output is `CE_AIDistrictScoresSelfTest=36`, with exit0. The command above
-is a supported-toolchain recipe pending execution, not an MSVC qualification
-claim. These synthetic checks also do not execute the real MASM shim or establish
-a working full CE DLL, hook installation, game lifecycle or multiplayer safety.
+Expected output is `CE_AIDistrictScoresSelfTest=36`, with exit0. The recipe was
+executed successfully with x64 MSVC14.44.35207 C11 on 5 November 2026. Synthetic
+checks do not execute the real MASM shim or establish a working full DLL, hooks,
+game lifecycle or multiplayer safety; those require separate evidence.
 
-The earlier prototype's evidence is preserved in the [qualification report](https://hennogous.github.io/Henno-Mods/ai/sources/project/docs/research/mods/csc-ce-policy-parity-20261104).
-It explains the recovered signatures and actual prior runtime observations; it
-is not a test receipt for this develop port. Supported MSVC/full-DLL and fresh
-native-game qualification remain pending for this source revision.
+## Develop qualification checkpoint — 5 November 2026
+
+Tested implementation: commit `87f48fc7878d00851279bccbc9dd30cfe147470b`, based on
+upstream develop `2986a746b396eb93aad14f9afffb043a09c2c489`. This documentation
+follow-up changes no compiled source or project input.
+
+- Existing Release/x64 VCXPROJ builds with VS2022/MSVC14.44.35207, SDK26100 and
+  pinned vcpkg dependencies. Unmodified upstream builds in the same environment;
+  each reports the same144 warnings and zero errors. No alternate CE builder or
+  source workaround is part of the contribution.
+- Feature DLL SHA-256:
+  `b1090682fc6c964d077c36efe4dcbac6693d6bf83f9da08b5ad4c0f6e77d139b`.
+  All157 export contracts match upstream; independent static checks cover actual
+  imports, compiled guards/bindings/lifecycle, the MASM shim and its unwind data.
+- A fresh isolated CSC/Lua test completed Online100, off-context1–2 and an exact
+  saved6 reload, using the shared controller. All101 Lua/Python plan comparisons
+  match across100 publications. All27,775 journal records audit:62 increases,
+  13,746 deductions, all four trace families, zero reported native API faults,
+  no original-human trace and read-only diagnostic outputs.
+- Supported exit0, exact153 subscription preferences, source/package inventories
+  and the previous development-package restoration are verified. No Frida,
+  Python policy publisher, district orders or grants were used.
+
+The [develop qualification report](https://hennogous.github.io/Henno-Mods/ai/sources/project/docs/research/mods/csc-ce-develop-port-20261105)
+identifies the build/native receipts, exact target, test setup and limitations.
+This establishes the bounded method on the pinned Windows target, not better AI
+quality, a controlled comparison across CSC revisions, Debug, multiplayer,
+other CE consumers, live DLL unloading or actual Workshop subscription.
+
+The [earlier prototype report](https://hennogous.github.io/Henno-Mods/ai/sources/project/docs/research/mods/csc-ce-policy-parity-20261104)
+preserves the recovered signatures and its distinct runtime observations; its
+counts should not be substituted for this develop build. The old PR is closed.
+Final capability scope will be reviewed before a replacement PR to develop.
