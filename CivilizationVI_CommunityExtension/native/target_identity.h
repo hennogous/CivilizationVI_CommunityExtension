@@ -3,8 +3,9 @@
 #include <cstdint>
 
 namespace AI::DistrictScores::GameCoreLayout {
-// XP2 Windows Steam image. See native/README.md for the recovered signatures,
-// observed caller/register usage and original fixture. Requalify the offsets
+// XP2 Windows Steam November 2026 hotfix (build 26407122). Its .text and
+// section layout match the previous image. See native/README.md for the
+// recovered signatures, caller/register usage and fixture. Requalify the offsets
 // and instruction prefixes together before adding support for another image.
 inline constexpr uintptr_t RegisterScriptDataRva = 0x5bdac0;
 inline constexpr uintptr_t DistrictNetValueRva = 0x52a440;
@@ -45,8 +46,8 @@ inline constexpr size_t RowOwnedOffset = 0x5a;
 inline constexpr size_t RowOwnerOffset = 0x70;
 inline constexpr size_t RowCityIdOffset = 0x74;
 
-inline constexpr char GameCoreSha256[] = "324c51e9ea3531758842e16c69e6cddbefbb226c5b675c3d6e60111646c2e98c";
-inline constexpr uint32_t GameCoreTimestamp = 1719431003u;
+inline constexpr char GameCoreSha256[] = "092abfbb2176f8df04b5212f819dc269dd83aea866ff05aaf489904a1ff7c41f";
+inline constexpr uint32_t GameCoreTimestamp = 1793649108u;
 inline constexpr uint32_t GameCoreImageSize = 12976128u;
 inline constexpr unsigned char fingerprint_register[32] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x45, 0x33, 0xc0, 0x48, 0x8d, 0x15, 0x90, 0x0a, 0x00, 0x00, 0x48, 0x8b, 0xd9, 0xe8, 0xa8, 0xfd, 0x3e, 0x00, 0x45, 0x33, 0xc0, 0x48, 0x8d, 0x15, 0x9e, 0x0b };
 inline constexpr unsigned char fingerprint_net[32] = { 0x89, 0x54, 0x24, 0x10, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x48, 0x8d, 0x6c, 0x24, 0xf1, 0x48, 0x81, 0xec, 0xa0, 0x00, 0x00, 0x00, 0x44, 0x8b, 0x75, 0x6f, 0x33, 0xc0 };

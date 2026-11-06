@@ -68,11 +68,14 @@ helper uses bounded 240-byte literal fragments, `luaL_checkstack` and incrementa
 
 ## Qualified native target
 
-Windows x64 Gathering Storm `GameCore_XP2_FinalRelease.dll` only:
+Windows x64 Gathering Storm `GameCore_XP2_FinalRelease.dll`, Steam build
+26407122. The November hotfix retains the earlier XP2 instruction bytes,
+section layout and AI caller sites. This topic branch is an offline port
+candidate pending qualification on a compatible upstream CE base.
 
 ```
-SHA-256 324c51e9ea3531758842e16c69e6cddbefbb226c5b675c3d6e60111646c2e98c
-PE timestamp 1719431003
+SHA-256 092abfbb2176f8df04b5212f819dc269dd83aea866ff05aaf489904a1ff7c41f
+PE timestamp 1793649108
 Image size 12976128
 ```
 
