@@ -36,6 +36,9 @@ using namespace GameCoreLayout;
 
 constexpr int MaxEntries = 4096;
 constexpr int MaxPlayers = 64;
+// Independent of publication size. Recalculating the same valid pair counts
+// again, so routine operation must not inherit the diagnostic write ceiling.
+constexpr long MaxRoutineWritesPerPublication = 1L << 20;
 constexpr int MaxMapDimension = 256;
 constexpr int MaxSamples = 64;
 constexpr int TraceCapacity = 16384;
@@ -64,6 +67,7 @@ struct BuilderAllowance {
 struct Policy {
     int version{}, width{}, height{}, districts{}, count{};
     bool hasLateEntries{};
+    bool detailedTrace{true};
     std::array<bool, MaxPlayers> allowed{};
     std::array<Entry, MaxEntries> entries{};
     int builderCount{};
@@ -76,6 +80,7 @@ void clear_policy(Policy& value) {
     // the entire fixed table as a temporary on the gameplay Lua stack.
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
     value.hasLateEntries = false;
+    value.detailedTrace = true;
     value.protectWonders = false;
     value.allowed.fill(false);
 }
@@ -211,7 +216,7 @@ int trace_room(void) {
     return 1;
 }
 void record_trace(TraceKind kind, Entry key, int district, int plot, int base, int result, int reason, int eligible) {
-    if (!trace_room())
+    if (!policy.detailedTrace || !trace_room())
         return;
     trace_records[trace_count++] = TraceRecord{kind, static_cast<int>(generation), policy.version,
     key.player, key.city, district, plot, base, result, reason, eligible};
@@ -220,7 +225,7 @@ void record_trace(TraceKind kind, Entry key, int district, int plot, int base, i
 // attempted write before allowing the next change. A late result must remain a
 // positive district opportunity within the qualified selection window.
 void apply_score(TraceKind kind, const Entry& entry, int* score) {
-    if (!trace_room())
+    if (policy.detailedTrace && !trace_room())
         return;
     const int base = *score;
     int result = base;
@@ -233,7 +238,7 @@ void apply_score(TraceKind kind, const Entry& entry, int* score) {
         reason = InvalidArithmetic;
         result = base;
     }
-    else if (changed >= MaxEntries) {
+    else if (changed >= (policy.detailedTrace ? MaxEntries : MaxRoutineWritesPerPublication)) {
         native_fault();
         reason = WriteBudget;
         result = base;
@@ -250,36 +255,58 @@ void apply_score(TraceKind kind, const Entry& entry, int* score) {
 /* Both lookup helpers require the caller's shared/exclusive policy lock.
  * Returned addresses may be used only while that lock is held; hook admissions
  * copy the Entry so no policy-table pointer crosses an original game call. */
-Entry* find_pair(int player, int city, int district, int plot) {
-    if (player < 0 || player >= MaxPlayers || !policy.allowed[player])
-        return nullptr;
-    for (int i = 0; i < policy.count; i++) {
-        Entry* e = &policy.entries[i];
-        if (e->player == player && e->city == city && e->district == district && e->plot == plot)
-            return e;
-    }
-    return nullptr;
+auto district_key(const Entry& e) {
+    return std::tie(e.player, e.city, e.plot, e.district);
 }
-Entry* find_city(int player, int city) {
+
+auto district_city(const Entry& e) {
+    return std::tie(e.player, e.city);
+}
+
+auto district_site(const Entry& e) {
+    return std::tie(e.player, e.city, e.plot);
+}
+
+auto district_city_range(const Entry& key) {
+    const auto first = policy.entries.data();
+    const auto end = first + policy.count;
+    const auto lower = std::lower_bound(first, end, key,
+        [](const Entry& a, const Entry& b) { return district_city(a) < district_city(b); });
+    const auto upper = std::upper_bound(lower, end, key,
+        [](const Entry& a, const Entry& b) { return district_city(a) < district_city(b); });
+    return std::pair{lower, upper};
+}
+
+const Entry* find_pair(int player, int city, int district, int plot) {
     if (player < 0 || player >= MaxPlayers || !policy.allowed[player])
         return nullptr;
-    for (int i = 0; i < policy.count; i++) {
-        Entry* e = &policy.entries[i];
-        if (e->player == player && e->city == city)
-            return e;
-    }
-    return nullptr;
+    const Entry key{player, city, district, plot, 0};
+    const auto first = policy.entries.data();
+    const auto end = first + policy.count;
+    const auto match = std::lower_bound(first, end, key,
+        [](const Entry& a, const Entry& b) { return district_key(a) < district_key(b); });
+    return match != end && district_key(*match) == district_key(key) ? match : nullptr;
+}
+
+const Entry* find_city(int player, int city) {
+    if (player < 0 || player >= MaxPlayers || !policy.allowed[player])
+        return nullptr;
+    const auto [first, end] = district_city_range({player, city, 0, 0, 0});
+    return first == end ? nullptr : first;
 }
 /* Admit read-only tracing only for a city represented in the current policy.
  * Borrow the City through CityBuild and recheck the owner and local city ID. */
-Observation observe_enter(void* object) {
+Observation observe_enter(void* object, bool allowLate = false) {
     Observation o;
     ++calls;
+    if (!enabled)
+        return o;
     std::shared_lock guard(policyMutex);
-    if (enabled && readable(object, CityBuildRowCountOffset + sizeof(unsigned), 0)) {
+    if (enabled && (policy.detailedTrace || (allowLate && policy.hasLateEntries)) &&
+        readable(object, CityBuildRowCountOffset + sizeof(unsigned), false)) {
         unsigned char* city = read_field<unsigned char*>(static_cast<unsigned char*>(object), CityBuildCityOffset);
         if (readable(city, CityOwnerOffset + sizeof(int), 0)) {
-            Entry* e = find_city(read_field<int>(city, CityOwnerOffset), read_field<int>(city, CityIdOffset));
+            const Entry* e = find_city(read_field<int>(city, CityOwnerOffset), read_field<int>(city, CityIdOffset));
             if (e) {
                 o.accepted = true;
                 o.hasLateEntries = policy.hasLateEntries;
@@ -298,7 +325,7 @@ Observation observe_enter(void* object) {
  * actual winning pair even if it is another district in the scoped city. This
  * is a return-boundary observation, not an atomic whole-analysis snapshot. */
 void observe_cache(void* object, Observation o, TraceKind kind, int district, int plot) {
-    if (!enabled || generation != o.epoch)
+    if (!enabled || generation != o.epoch || !policy.detailedTrace)
         return;
     auto* b = static_cast<unsigned char*>(object);
     if (!readable(b, CityBuildRowCountOffset + sizeof(unsigned), 0)) {
@@ -316,6 +343,7 @@ void observe_cache(void* object, Observation o, TraceKind kind, int district, in
         native_fault();
         return;
     }
+    const auto [first, end] = district_city_range(o.key);
     for (unsigned i = 0; i < n; i++) {
         unsigned char* row = rows + static_cast<size_t>(i) * PlotAnalysisRowSize;
         int x = read_field<int>(row, RowXOffset), y = read_field<int>(row, RowYOffset);
@@ -334,13 +362,13 @@ void observe_cache(void* object, Observation o, TraceKind kind, int district, in
             record_trace(kind, o.key, district, plot, scores[district], scores[district], 0, eligible);
             return;
         }
-        for (int j = 0; j < policy.count; j++) {
-            Entry e = policy.entries[j];
-            if (e.player == o.key.player && e.city == o.key.city && e.plot == index) {
-                record_trace(kind, e, e.district, index, scores[e.district], scores[e.district], 0, eligible);
-                if (!enabled)
-                    return;
-            }
+        const Entry site{o.key.player, o.key.city, 0, index, 0};
+        auto e = std::lower_bound(first, end, site,
+            [](const Entry& a, const Entry& b) { return district_site(a) < district_site(b); });
+        for (; e != end && e->plot == index; ++e) {
+            record_trace(kind, *e, e->district, index, scores[e->district], scores[e->district], 0, eligible);
+            if (!enabled)
+                return;
         }
     }
 }
@@ -413,9 +441,11 @@ void capture_late_rows(void* object, const Observation& observation, LateBatch& 
     batch.matrix = read_matrix(object, observation.key);
     if (!batch.matrix.rows)
         return;
-    for (int index = 0; index < policy.count; ++index) {
-        const auto& entry = policy.entries[index];
-        if (!entry.expectedBefore || entry.city != observation.key.city || entry.player != observation.key.player)
+    const auto [first, end] = district_city_range(observation.key);
+    for (auto* at = first; at != end; ++at) {
+        const auto& entry = *at;
+        const auto index = at - policy.entries.data();
+        if (!entry.expectedBefore)
             continue;
         for (unsigned row = 1; row < batch.matrix.rowCount; ++row) {
             const auto* score = resolve_late_cell(batch.matrix, row, entry);
@@ -431,11 +461,12 @@ void apply_late_rows(void* object, const Observation& observation, const LateBat
     if (!batch.matrix.rows || !enabled || generation != observation.epoch ||
         read_matrix(object, observation.key) != batch.matrix)
         return;
-    for (int index = 0; enabled && index < policy.count; ++index) {
-        const auto candidate = batch.candidates[index];
+    const auto [first, end] = district_city_range(observation.key);
+    for (auto* at = first; enabled && at != end; ++at) {
+        const auto candidate = batch.candidates[at - policy.entries.data()];
         if (!candidate.row)
             continue;
-        const auto& entry = policy.entries[index];
+        const auto& entry = *at;
         auto* score = resolve_late_cell(batch.matrix, candidate.row, entry);
         if (!score)
             continue;
@@ -462,7 +493,7 @@ void calculate_with_late_policy(void* object, const Observation& observation) {
 
 void calculate_district_values(void* object, void* caller) {
     ActiveCall activity;
-    const auto observation = observe_enter(object);
+    const auto observation = observe_enter(object, true);
     if (observation.hasLateEntries && caller == Runtime::GetGameCoreGlobalAt<void*>(DistrictAggregationReturnRva)) {
         calculate_with_late_policy(object, observation);
         return;
@@ -513,7 +544,7 @@ int* __cdecl hook_present(void* object, int* out, int district, void* plot) {
     if (o.accepted && enabled && generation == o.epoch && district > 0 && district < policy.districts && readable(plot, PlotYOffset + sizeof(int16_t), 0)) {
         auto* p = static_cast<unsigned char*>(plot);
         int x = read_field<int16_t>(p, PlotXOffset), y = read_field<int16_t>(p, PlotYOffset);
-        Entry* e = (x >= 0 && y >= 0 && x < policy.width && y < policy.height)?find_pair(o.key.player, o.key.city, district, y*policy.width + x) : nullptr;
+        const Entry* e = (x >= 0 && y >= 0 && x < policy.width && y < policy.height)?find_pair(o.key.player, o.key.city, district, y*policy.width + x) : nullptr;
         if (e)
             o.key = *e;
         else o.accepted = false;
@@ -562,7 +593,7 @@ extern "C" int* AIDistrictScoreNet(int* out, unsigned district, int* time, int r
             if (player >= 0 && player < MaxPlayers && policy.allowed[player] && x >= 0 && x < policy.width && y >= 0 && y < policy.height &&
                 read_field<int>(row, RowXOffset) == x && read_field<int>(row, RowYOffset) == y && read_field<int16_t>(row, RowOwnerOffset) == player &&
                 read_field<int>(row, RowCityIdOffset) == cityId && row[RowDistrictEligibleOffset] && (row[RowOwnedOffset] || row[RowFrontierOffset])) {
-                Entry* e = find_pair(player, cityId, static_cast<int>(district), y*policy.width + x);
+                const Entry* e = find_pair(player, cityId, static_cast<int>(district), y*policy.width + x);
                 if (e && !e->expectedBefore) {
                     entry = *e;
                     epoch = generation;
@@ -744,6 +775,17 @@ int l_late_entry(lua_State* L) {
 /* Only a ready, fault-free consumer may publish. Faults stay sticky until a
  * context reset. Clearing trace/samples here starts a new evidence window, so
  * callers must archive the retired window before committing a replacement. */
+int l_stage_summary(lua_State* L) {
+    bool ok;
+    {
+        std::unique_lock guard(policyMutex);
+        ok = staging_valid;
+        if (ok)
+            staging.detailedTrace = false;
+    }
+    return integer_result(L, ok);
+}
+
 int l_commit(lua_State* L) {
     bool ok;
     {
@@ -757,6 +799,8 @@ int l_commit(lua_State* L) {
             staging.builderCount = static_cast<int>(std::unique(first, end, [](const auto& a, const auto& b) {
                 return !builder_order(a, b) && !builder_order(b, a);
             }) - first);
+            std::sort(staging.entries.begin(), staging.entries.begin() + staging.count,
+                [](const Entry& a, const Entry& b) { return district_key(a) < district_key(b); });
             policy = staging;
             builder_changed = 0;
             first_builder_change = {};
@@ -821,7 +865,8 @@ int l_status(lua_State* L) {
         snprintf(
             output + n,
             sizeof output - n,
-            "],\"trace_count\":%d,\"trace_capacity\":%d,\"active\":%ld}",
+            "],\"detailed\":%d,\"trace_count\":%d,\"trace_capacity\":%d,\"active\":%ld}",
+            static_cast<int>(policy.detailedTrace),
             trace_count,
             TraceCapacity,
             active.load()
@@ -1054,6 +1099,7 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_stage_wonder_protection, "CE_AISupplierWonderProtectionStage", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStage");
     PushLuaMethod(L, l_wonder_status, "CE_AISupplierWonderProtectionStatus", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStatus");
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
+    PushLuaMethod(L, l_stage_summary, "CE_AIDistrictScoresStageSummary", hks::LUA_GLOBAL, "CE_AIDistrictScoresStageSummary");
     PushLuaMethod(L, l_commit, "CE_AIDistrictScoresCommit", hks::LUA_GLOBAL, "CE_AIDistrictScoresCommit");
     PushLuaMethod(L, l_disable, "CE_AIDistrictScoresDisable", hks::LUA_GLOBAL, "CE_AIDistrictScoresDisable");
     PushLuaMethod(L, l_status, "CE_AIDistrictScoresStatus", hks::LUA_GLOBAL, "CE_AIDistrictScoresStatus");

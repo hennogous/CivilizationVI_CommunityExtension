@@ -203,7 +203,7 @@ try {
 } finally { Pop-Location }
 ```
 
-Expected results are 50 district-score checks and four hook-group checks.
+Expected results are 54 district-score checks and four hook-group checks.
 The three failure-path diagnostics are expected in the isolated host.
 
 ## Earlier C port qualification checkpoint — 5 November 2026
@@ -299,3 +299,20 @@ This optional hook uses the same image qualification and shared Runtime
 as Builder protection. An unexpected entry, caller or output leaves
 ordinary evaluation intact. The publisher and worker share only the staged
 immutable site keys. No Lua or world mutation runs from the worker.
+
+## Routine district policy publication
+
+CE_AIDistrictScoresStageSummary() is an optional step after Begin and before
+Commit. A summary publication keeps admission, arithmetic guards, change
+counters and bounded sample receipts. It skips the per-call cache, winner and
+present-value journal. The independent routine limit is 1,048,576 changed
+writes per publication. Filling a diagnostic journal or crossing the
+diagnostic write limit does not retire a summary publication. Detailed
+tracing remains the default for callers that omit this step.
+
+Commit sorts the immutable district entries by player, city, plot and
+district. Candidate lookups use binary search and cache or late-score work
+uses the matched city range. Native workers borrow no policy pointers across
+an original function call. The installed hook set and score units are
+unchanged. The isolated regression tests cover both modes and the preserved
+detailed and late paths. Live overhead still needs an independent comparison.

@@ -291,6 +291,24 @@ int run_self_test() {
     CHECK(*score == lateNative && changed == 1 && active == 0);
     test_bump_epoch = false;
     cacheTestScore = nullptr;
+    reset_policy();
+    l_begin(asLua(begin));
+    l_allow(asLua(allow));
+    stage_entry(Entry{1, 9, 7, 40, 256}, false);
+    stage_entry(Entry{1, 7, 8, 30, -256}, false);
+    l_stage_summary(nullptr);
+    l_commit(nullptr);
+    CHECK(test_integer == 1 && enabled && !policy.detailedTrace && policy.entries[0].city == 7);
+    const auto* early = find_pair(1, 7, 8, 30);
+    CHECK(early && !find_pair(1, 7, 8, 40) && find_pair(1, 9, 7, 40));
+    trace_count = TraceCapacity;
+    changed = MaxEntries;
+    int routineScore = 1024;
+    apply_score(Net, *early, &routineScore);
+    CHECK(routineScore == 768 && changed == MaxEntries + 1 && enabled && faults == 0 && trace_count == TraceCapacity);
+    begin[0] = 2;
+    l_begin(asLua(begin));
+    CHECK(test_integer == 1 && staging.detailedTrace);
 #undef CHECK
     return n;
 }
