@@ -257,7 +257,7 @@ publish district entries alone.
 
 CE_AIBuilderProtectionBid(player, city, plot, improvement, deltaQ8) stages
 the same allowance with a bounded preference. The accepted range is 0 to
-32 score units (8,192 in Q8). The strongest preference for an identical key
+64 score units (16,384 in Q8). The strongest preference for an identical key
 wins at publication. The hook adds a bid only to a positive result from the
 already eligible native caller, and skips arithmetic overflow. A zero,
 negative or ineligible result stays native. Callers can continue to use
