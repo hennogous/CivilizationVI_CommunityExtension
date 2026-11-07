@@ -82,7 +82,9 @@ static void PushSharedGlobals(hks::lua_State* L) {
     PushLuaMethod(L, MemoryManipulation::LuaExport::lMem, "lMem", hks::LUA_GLOBAL, "Mem");
     PushLuaMethod(L, MemoryManipulation::LuaExport::lObjMem, "lObjMem", hks::LUA_GLOBAL, "ObjMem");
     PushLuaMethod(L, MemoryManipulation::LuaExport::lRegisterCallEvent, "lRegisterCallEvent", hks::LUA_GLOBAL, "RegisterCallEvent");
-    PushLuaMethod(L, EventSystems::lRegisterProcessor, "lRegisterProcessor", hks::LUA_GLOBAL, "RegisterProcessor");
+    if (EventSystems::IsReady()) {
+        PushLuaMethod(L, EventSystems::lRegisterProcessor, "lRegisterProcessor", hks::LUA_GLOBAL, "RegisterProcessor");
+    }
 
     MemoryManipulation::LuaExport::PushFieldTypes(L);
 }
@@ -196,7 +198,12 @@ static void InitializeCommunityExtension() {
         throw std::runtime_error("Could not find function: GameCore_XP2::DllDestroyGameContext!");
     }
 
-    // Do stuff to the game
+    // Preserve native forwarding on unknown builds. No address-dependent
+    // hooks or Lua bindings may be installed without a qualified pair.
+    if (!Runtime::Base::SelectExecutableProfile()) {
+        Runtime::MainLogger->Error("Unsupported executable or XP2 image. CE hooks disabled.");
+        return;
+    }
     Runtime::InitMinHook();
     hks::InitHavokScript();
     InitHooks();

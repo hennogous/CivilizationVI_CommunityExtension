@@ -9,8 +9,9 @@ namespace ForgeUI {
 	void Create() {
 		using namespace Runtime;
 
-		GetLock = GetGlobalAt<Types::GetLock>(GET_LOCK_OFFSET);
-		ReleaseLock = GetGlobalAt<Types::ReleaseLock>(RELEASE_LOCK_OFFSET);
-		manager = GetGlobalAt<ForgeUI_UIManager*>(MANAGER_OFFSET);
+		const auto& profile = *Base::GetExecutableProfile();
+		GetLock = GetGlobalAt<Types::GetLock>(profile.forgeGetLock);
+		ReleaseLock = GetGlobalAt<Types::ReleaseLock>(profile.forgeReleaseLock);
+		manager = GetGlobalAt<ForgeUI_UIManager*>(profile.forgeManagerSlot);
 	}
 }

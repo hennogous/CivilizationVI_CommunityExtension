@@ -15,16 +15,24 @@ namespace Runtime {
 	extern Log::Logger* MainLogger;
 
 	namespace Base {
+		struct ExecutableProfile {
+			const char* name;
+			const char* executableSha;
+			const char* gameCoreSha;
+			uintptr_t publishEvents;
+			uintptr_t luaCriticalSection;
+			uintptr_t forgeGetLock;
+			uintptr_t forgeReleaseLock;
+			uintptr_t forgeManagerSlot;
+			unsigned char publishPrefix[24];
+		};
+
 		using EXP_GetLogPath_t = size_t(__fastcall*)(wchar_t* pszOutBuffer, const wchar_t* pszSubPath);
 		extern EXP_GetLogPath_t EXP_GetLogPath;
 
-		using EnterLuaCriticalSection_t = void(*)(void);
-		extern EnterLuaCriticalSection_t EnterLuaCriticalSection;
-
-		using LeaveLuaCriticalSection_t = void(*)(void);
-		extern LeaveLuaCriticalSection_t LeaveLuaCriticalSection;
-
 		extern void Create();
+		extern bool SelectExecutableProfile();
+		extern const ExecutableProfile* GetExecutableProfile();
 	}
 
 	// Should only be called once
@@ -54,6 +62,21 @@ namespace Runtime {
 		if ((status = MH_EnableHook(pTarget)) != MH_OK) {
 			Runtime::MainLogger->Info("Failed to enable hook! {}", MH_StatusToString(status));
 		}
+	}
+
+	template <typename T>
+	bool TryCreateHook(LPVOID target, LPVOID detour, T** original) {
+		if (const auto result = MH_CreateHook(target, detour, reinterpret_cast<LPVOID*>(original)); result != MH_OK) {
+			MainLogger->Error("Failed to create hook: {}", MH_StatusToString(result));
+			return false;
+		}
+		if (const auto result = MH_EnableHook(target); result != MH_OK) {
+			MH_RemoveHook(target);
+			*original = nullptr;
+			MainLogger->Error("Failed to enable hook: {}", MH_StatusToString(result));
+			return false;
+		}
+		return true;
 	}
 
 	extern void InitConsole();

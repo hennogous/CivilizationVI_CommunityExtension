@@ -2,7 +2,11 @@
 #include "MinHook.h"
 #include <iostream>
 #include "HavokScript.h"
+#include <array>
+#include <bcrypt.h>
+#include <cstring>
 #pragma comment(lib, "libMinHook.x64.lib")
+#pragma comment(lib, "bcrypt.lib")
 
 namespace Runtime {
 	HMODULE GameCore;
@@ -16,15 +20,80 @@ namespace Runtime {
 	namespace Base {
 		EXP_GetLogPath_t EXP_GetLogPath;
 
-		EnterLuaCriticalSection_t EnterLuaCriticalSection;
-		LeaveLuaCriticalSection_t LeaveLuaCriticalSection;
+		namespace {
+			// Windows Steam DX11. The hotfix moved executable code and data
+			// while the XP2 code section stayed identical. See the CSC binary
+			// comparison for the unwind, instruction and data-reference proof.
+			constexpr ExecutableProfile profiles[] = {
+				{"Steam DX11 reference",
+				 "e7450823cc8e00468cff7b9d7b97c63140eae38ae1d774ba4efa437556c42d63",
+				 "324c51e9ea3531758842e16c69e6cddbefbb226c5b675c3d6e60111646c2e98c",
+				 0x6e260, 0x3552fa0, 0x88b330, 0x8948a0, 0x235f7c8,
+				 {0x40,0x57,0x48,0x83,0xec,0x70,0xf2,0x0f,0x10,0x15,0x8a,0xce,0xf3,0x00,0x4c,0x8d,0x0d,0x1b,0x5a,0x25,0x01,0x48,0x8b,0xf9}},
+				{"Steam DX11 November hotfix",
+				 "d1a0cfd439e7451be515f47595cfa0b6b983f56d1faf4ea434a4ce3b21491ebe",
+				 "092abfbb2176f8df04b5212f819dc269dd83aea866ff05aaf489904a1ff7c41f",
+				 0x6d500, 0x3553fa0, 0x88b9b0, 0x895000, 0x23607c8,
+				 {0x40,0x57,0x48,0x83,0xec,0x70,0xf2,0x0f,0x10,0x15,0xba,0xeb,0xf3,0x00,0x4c,0x8d,0x0d,0x7b,0x77,0x25,0x01,0x48,0x8b,0xf9}},
+			};
+			const ExecutableProfile* selectedProfile = nullptr;
+
+			std::string ImageSha256(HMODULE module) {
+				std::array<wchar_t, 32768> path;
+				const DWORD length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
+				if (!length || length == path.size()) return {};
+				std::ifstream file(std::filesystem::path(path.data()), std::ios::binary);
+				if (!file) return {};
+
+				BCRYPT_ALG_HANDLE algorithm{};
+				if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0) return {};
+				const std::unique_ptr<void, decltype([](void* p) { BCryptCloseAlgorithmProvider(p, 0); })>
+					ownedAlgorithm(algorithm);
+				DWORD objectSize{}, received{};
+				if (BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>(&objectSize),
+					sizeof objectSize, &received, 0) < 0 || received != sizeof objectSize || !objectSize) return {};
+				// The backing object must outlive the hash handle.
+				std::vector<UCHAR> object(objectSize);
+				BCRYPT_HASH_HANDLE hash{};
+				if (BCryptCreateHash(algorithm, &hash, object.data(), objectSize, nullptr, 0, 0) < 0) return {};
+				const std::unique_ptr<void, decltype(&BCryptDestroyHash)> ownedHash(hash, BCryptDestroyHash);
+				std::array<UCHAR, 65536> buffer;
+				while (file.read(reinterpret_cast<char*>(buffer.data()), buffer.size()) || file.gcount()) {
+					if (BCryptHashData(hash, buffer.data(), static_cast<ULONG>(file.gcount()), 0) < 0) return {};
+				}
+				if (!file.eof() || file.bad()) return {};
+				std::array<UCHAR, 32> digest;
+				if (BCryptFinishHash(hash, digest.data(), static_cast<ULONG>(digest.size()), 0) < 0) return {};
+
+				constexpr char digits[] = "0123456789abcdef";
+				std::string hex(digest.size() * 2, '0');
+				for (size_t i = 0; i < digest.size(); ++i) {
+					hex[2 * i] = digits[digest[i] >> 4];
+					hex[2 * i + 1] = digits[digest[i] & 0xf];
+				}
+				return hex;
+			}
+		}
 
 		void Create() {
 			EXP_GetLogPath = (EXP_GetLogPath_t)GetProcAddress(CivVIModHandle, "EXP_GetLogPath");
-
-			EnterLuaCriticalSection = GetGlobalAt<EnterLuaCriticalSection_t>(0xdafa40);
-			LeaveLuaCriticalSection = GetGlobalAt<LeaveLuaCriticalSection_t>(0xdb0660);
 		}
+
+		bool SelectExecutableProfile() {
+			const auto executableSha = ImageSha256(CivVIModHandle);
+			const auto gameCoreSha = ImageSha256(GameCore);
+			for (const auto& profile : profiles) {
+				if (executableSha != profile.executableSha || gameCoreSha != profile.gameCoreSha) continue;
+				const auto* entry = GetGlobalAt<const unsigned char*>(profile.publishEvents);
+				if (std::memcmp(entry, profile.publishPrefix, sizeof profile.publishPrefix) != 0) return false;
+				selectedProfile = &profile;
+				MainLogger->Info("Qualified CE executable profile: {}", profile.name);
+				return true;
+			}
+			return false;
+		}
+
+		const ExecutableProfile* GetExecutableProfile() { return selectedProfile; }
 	}
 
 	// Should only be called once

@@ -9,12 +9,11 @@ namespace EventSystems {
 		typedef void* (* PublishEvents)(void*);
 	}
 
-	constexpr uintptr_t PUBLISH_EVENTS_OFFSET = 0x6e260;
-
 	extern bool DoesProcessorExist(const std::string& name);
+	extern bool IsReady();
 	extern std::future<bool> CallProcessorsAsync(const std::string& name, Data::LuaVariantMap& variantMap, const std::string& propertyToGet = "");
 	extern int lRegisterProcessor(hks::lua_State* L);
-	extern void PublishEvents(void* _);
+	extern void* PublishEvents(void* context);
 
 	extern void Create();
 }

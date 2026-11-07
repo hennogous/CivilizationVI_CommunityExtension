@@ -39,6 +39,10 @@ namespace EventSystems {
     std::mutex eventQueueMutex;
     std::queue<QueuedEvent> eventQueue;
     std::condition_variable eventQueueCV;
+    static LPCRITICAL_SECTION luaCriticalSection = nullptr;
+    static bool ready = false;
+
+    bool IsReady() { return ready; }
 
     int lRegisterProcessor(hks::lua_State* L) {
         size_t length;
@@ -146,8 +150,7 @@ namespace EventSystems {
             lock.unlock();
 
             {
-                auto lpCritSec = Runtime::GetGlobalAt<LPCRITICAL_SECTION>(0x3552fa0);
-                EnterCriticalSection(lpCritSec);
+                EnterCriticalSection(luaCriticalSection);
 
                 bool result = callProcessorInState(
                     queuedEvent.processorEvent.L,
@@ -157,7 +160,7 @@ namespace EventSystems {
                 );
                 queuedEvent.promise.set_value(result);
 
-                LeaveCriticalSection(lpCritSec);
+                LeaveCriticalSection(luaCriticalSection);
             }
 
             lock.lock();
@@ -167,16 +170,18 @@ namespace EventSystems {
     
     Types::PublishEvents base_PublishEvents;
     Types::PublishEvents orig_PublishEvents;
-    void PublishEvents(void* _) {
+    void* PublishEvents(void* context) {
         processQueuedProcessorEvents();
-        base_PublishEvents(_);
+        return base_PublishEvents(context);
     }
 
     void Create() {
         Runtime::MainLogger->Info("Establishing event hooks!");
         using namespace Runtime;
 
-        orig_PublishEvents = GetGlobalAt<Types::PublishEvents>(PUBLISH_EVENTS_OFFSET);
-        CreateHook(orig_PublishEvents, &PublishEvents, &base_PublishEvents);
+        const auto& profile = *Base::GetExecutableProfile();
+        luaCriticalSection = GetGlobalAt<LPCRITICAL_SECTION>(profile.luaCriticalSection);
+        orig_PublishEvents = GetGlobalAt<Types::PublishEvents>(profile.publishEvents);
+        ready = TryCreateHook(orig_PublishEvents, &PublishEvents, &base_PublishEvents);
     }
 }
