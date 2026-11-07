@@ -67,6 +67,7 @@ struct Policy {
     std::array<bool, MaxPlayers> allowed{};
     std::array<Entry, MaxEntries> entries{};
     int builderCount{};
+    bool protectWonders{};
     std::array<BuilderAllowance, MaxEntries> builders{};
 };
 
@@ -75,6 +76,7 @@ void clear_policy(Policy& value) {
     // the entire fixed table as a temporary on the gameplay Lua stack.
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
     value.hasLateEntries = false;
+    value.protectWonders = false;
     value.allowed.fill(false);
 }
 
@@ -701,6 +703,32 @@ int l_builder_status(lua_State* L) {
     return 1;
 }
 
+int l_stage_wonder_protection(lua_State* L) {
+    bool ok;
+    {
+        std::unique_lock guard(policyMutex);
+        ok = wonder_ready && !wonder_faults && staging_valid && staging.builderCount > 0;
+        staging.protectWonders = ok;
+        if (!ok)
+            staging_valid = false;
+    }
+    return integer_result(L, ok);
+}
+
+int l_wonder_status(lua_State* L) {
+    char output[400];
+    {
+        std::shared_lock guard(policyMutex);
+        const auto& a = first_wonder_change;
+        snprintf(output, sizeof output,
+            "{\"ready\":%d,\"protected\":%d,\"changed\":%ld,\"faults\":%ld,\"first\":[%d,%d,%d,%d,%d,%d]}",
+            static_cast<int>(wonder_ready), static_cast<int>(policy.protectWonders), wonder_changed, wonder_faults,
+            a[0], a[1], a[2], a[3], a[4], a[5]);
+    }
+    push_json(L, output, strlen(output));
+    return 1;
+}
+
 int l_late_entry(lua_State* L) {
     // Public argument order follows the calculation, then the delta.
     const int player = hks::checkinteger(L, 1);
@@ -732,6 +760,8 @@ int l_commit(lua_State* L) {
             policy = staging;
             builder_changed = 0;
             first_builder_change = {};
+            wonder_changed = 0;
+            first_wonder_change = {};
             changed = matched = sample_count = trace_count = 0;
             generation++;
             enabled = true;
@@ -976,7 +1006,8 @@ void reset_policy(void) {
     generation++;
     clear_policy(policy);
     changed = matched = sample_count = trace_count = faults = 0;
-    builder_changed = builder_faults = 0;
+    builder_changed = builder_faults = wonder_changed = wonder_faults = 0;
+    first_wonder_change = {};
     first_builder_change = {};
 }
 
@@ -1008,6 +1039,7 @@ bool Create() {
     // The Builder boundary is optional. An unsupported prefix must not
     // disable the already qualified district interface.
     builder_ready = hooks_ready && install_builder_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
+    wonder_ready = builder_ready && install_wonder_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     return hooks_ready;
 }
 
@@ -1019,6 +1051,8 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_entry, "CE_AIDistrictScoresEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresEntry");
     PushLuaMethod(L, l_builder_allow, "CE_AIBuilderProtectionAllow", hks::LUA_GLOBAL, "CE_AIBuilderProtectionAllow");
     PushLuaMethod(L, l_builder_status, "CE_AIBuilderProtectionStatus", hks::LUA_GLOBAL, "CE_AIBuilderProtectionStatus");
+    PushLuaMethod(L, l_stage_wonder_protection, "CE_AISupplierWonderProtectionStage", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStage");
+    PushLuaMethod(L, l_wonder_status, "CE_AISupplierWonderProtectionStatus", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStatus");
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
     PushLuaMethod(L, l_commit, "CE_AIDistrictScoresCommit", hks::LUA_GLOBAL, "CE_AIDistrictScoresCommit");
     PushLuaMethod(L, l_disable, "CE_AIDistrictScoresDisable", hks::LUA_GLOBAL, "CE_AIDistrictScoresDisable");

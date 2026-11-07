@@ -274,3 +274,28 @@ scores. Its own prefix or hook failure leaves the district capability
 available. A returned-pointer or output-shape mismatch stops Builder writes
 for the context and leaves the original score in place. There is no Lua call
 from the AI worker.
+
+## Wonder site protection
+
+CE_AISupplierWonderProtectionStage() opts the staged Builder supplier sites
+into Wonder protection. Invoke it after supplying the allowed improvements
+and before Commit. It does not stage any additional sites. An empty or
+unavailable batch rejects the opt-in. Commit resets the evidence counters.
+CE_AISupplierWonderProtectionStatus reports ready, protected, changed, faults
+and the first changed tuple (player, city, plot, building, original, result).
+
+The hook uses the standard Win64 building NetValue entry (52a050) and calls
+the original with the same eight arguments. It changes a qualified result
+only from the coordinate-bearing caller (3e419a, return 3e419f). That caller
+checks CanHaveWonder and copies the result directly into the plot row.
+The other caller (3e3edd) passes sentinel coordinates for ordinary buildings
+and repairs, which retain their original scores. A protected Wonder row
+receives the same native ineligible score as a rejected plot. Score changes
+leave other sites and the native winner, reservation and production logic
+in control. Existing reservations and already cached values are unchanged
+until the relevant engine path runs again.
+
+This optional hook uses the same image qualification and shared Runtime
+as Builder protection. An unexpected entry, caller or output leaves
+ordinary evaluation intact. The publisher and worker share only the staged
+immutable site keys. No Lua or world mutation runs from the worker.
