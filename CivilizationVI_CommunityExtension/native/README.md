@@ -287,6 +287,29 @@ available. A returned-pointer or output-shape mismatch stops Builder writes
 for the context and leaves the original score in place. There is no Lua call
 from the AI worker.
 
+## Committed Builder harvest protection
+
+CE_AIBuilderHarvestProtectionStage() opts the current staging transaction
+into Clear Plot harvest protection for its Builder allowance sites.
+CE_AIBuilderHarvestProtectionStatus returns readiness, opt-in state, fault
+count, rejection count and the first [player, plot, worker] receipt.
+The opt-in belongs to a publication. Commit resets the receipts. A failed
+native write check retires the guard for that context.
+
+The Win64 ClearPlotNode::Update entry at 55eaf0 runs first. Its worker
+selection and cleanup remain native. The guard checks the published
+generation, admitted AI player, exact protected plot and true harvest
+binding. For a ready result it clears the selected worker and returns
+the routine's native failure value 3. This prevents the later Clear Plot
+execution for that attempt. The tree owns job release and retry. Ordinary
+construction and repair with no harvest binding retain the native result.
+Other harvest callers, feature removal and non-harvest replacement are
+outside this capability.
+
+Target and harvest bindings use the offsets and record widths documented
+beside the hook. The selected worker store and player ID read have separate
+prefix checks. An unsupported hook leaves score-stage protection available.
+
 ## Wonder site protection
 
 CE_AISupplierWonderProtectionStage() opts the staged Builder supplier sites

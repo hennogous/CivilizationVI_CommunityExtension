@@ -15,12 +15,12 @@ long builder_changed{}, builder_bids{}, builder_faults{};
 std::array<int, 6> first_builder_change{}, first_builder_bid{};
 
 auto builder_site(const BuilderAllowance& entry) {
-    return std::tie(entry.player, entry.city, entry.plot);
+    return std::tie(entry.player, entry.plot, entry.city);
 }
 
 bool builder_order(const BuilderAllowance& a, const BuilderAllowance& b) {
-    return std::tie(a.player, a.city, a.plot, a.improvement) <
-        std::tie(b.player, b.city, b.plot, b.improvement);
+    return std::tie(a.player, a.plot, a.city, a.improvement) <
+        std::tie(b.player, b.plot, b.city, b.improvement);
 }
 
 auto supplier_at(const BuilderAllowance& key) {

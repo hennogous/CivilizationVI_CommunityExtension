@@ -70,6 +70,7 @@ struct Policy {
     std::array<Entry, MaxEntries> entries{};
     int builderCount{};
     bool protectWonders{};
+    bool protectHarvests{};
     std::array<BuilderAllowance, MaxEntries> builders{};
 };
 
@@ -79,6 +80,7 @@ void clear_policy(Policy& value) {
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
     value.hasLateEntries = false;
     value.protectWonders = false;
+    value.protectHarvests = false;
     value.allowed.fill(false);
 }
 
@@ -588,6 +590,7 @@ extern "C" int* AIDistrictScoreNet(int* out, unsigned district, int* time, int r
 }
 
 #include "native/builder_protection.inl"
+#include "native/clear_plot_harvest.inl"
 
 namespace {
 
@@ -718,6 +721,32 @@ int l_builder_status(lua_State* L) {
     return 1;
 }
 
+int l_stage_harvest_protection(lua_State* L) {
+    bool ok;
+    {
+        std::unique_lock guard(policyMutex);
+        ok = harvest_ready && !harvest_faults && staging_valid && staging.builderCount > 0;
+        staging.protectHarvests = ok;
+        if (!ok)
+            staging_valid = false;
+    }
+    return integer_result(L, ok);
+}
+
+int l_harvest_status(lua_State* L) {
+    char output[256];
+    {
+        std::shared_lock guard(policyMutex);
+        const auto& sample = first_harvest_rejection;
+        snprintf(output, sizeof output,
+            "{\"ready\":%d,\"protected\":%d,\"rejected\":%ld,\"faults\":%ld,\"first\":[%d,%d,%d]}",
+            static_cast<int>(harvest_ready), static_cast<int>(policy.protectHarvests), harvest_rejected, harvest_faults,
+            sample[0], sample[1], sample[2]);
+    }
+    push_json(L, output, strlen(output));
+    return 1;
+}
+
 int l_stage_wonder_protection(lua_State* L) {
     bool ok;
     {
@@ -783,6 +812,8 @@ int l_commit(lua_State* L) {
             first_builder_bid = {};
             wonder_changed = 0;
             first_wonder_change = {};
+            harvest_rejected = 0;
+            first_harvest_rejection = {};
             changed = matched = sample_count = trace_count = 0;
             generation++;
             enabled = true;
@@ -1030,6 +1061,8 @@ void reset_policy(void) {
     builder_changed = builder_bids = builder_faults = wonder_changed = wonder_faults = 0;
     first_builder_bid = {};
     first_wonder_change = {};
+    harvest_rejected = harvest_faults = 0;
+    first_harvest_rejection = {};
     first_builder_change = {};
 }
 
@@ -1062,6 +1095,7 @@ bool Create() {
     // disable the already qualified district interface.
     builder_ready = hooks_ready && install_builder_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     wonder_ready = builder_ready && install_wonder_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
+    harvest_ready = builder_ready && install_harvest_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     return hooks_ready;
 }
 
@@ -1074,6 +1108,8 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_builder_allow, "CE_AIBuilderProtectionAllow", hks::LUA_GLOBAL, "CE_AIBuilderProtectionAllow");
     PushLuaMethod(L, l_builder_status, "CE_AIBuilderProtectionStatus", hks::LUA_GLOBAL, "CE_AIBuilderProtectionStatus");
     PushLuaMethod(L, l_builder_bid, "CE_AIBuilderProtectionBid", hks::LUA_GLOBAL, "CE_AIBuilderProtectionBid");
+    PushLuaMethod(L, l_stage_harvest_protection, "CE_AIBuilderHarvestProtectionStage", hks::LUA_GLOBAL, "CE_AIBuilderHarvestProtectionStage");
+    PushLuaMethod(L, l_harvest_status, "CE_AIBuilderHarvestProtectionStatus", hks::LUA_GLOBAL, "CE_AIBuilderHarvestProtectionStatus");
     PushLuaMethod(L, l_stage_wonder_protection, "CE_AISupplierWonderProtectionStage", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStage");
     PushLuaMethod(L, l_wonder_status, "CE_AISupplierWonderProtectionStatus", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStatus");
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");

@@ -307,6 +307,66 @@ int run_self_test() {
     CHECK(adjusted_builder_score(InvalidScore, InvalidScore, pasture) == InvalidScore);
     CHECK(adjusted_builder_score(INT_MAX, InvalidScore, pasture) == INT_MAX);
     CHECK(adjusted_builder_score(38655, InvalidScore, farm) == InvalidScore);
+
+    // The whole-function gate leaves cleanup to the original. Test the same
+    // binding layout and failure contract against synthetic engine objects.
+    unsigned char node[ClearSelectedWorker + sizeof(int)]{};
+    unsigned char player[PlayerInstanceId + sizeof(int)]{};
+    unsigned char targetVector[BindingCountOffset + sizeof(unsigned)]{};
+    unsigned char harvestVector[BindingCountOffset + sizeof(unsigned)]{};
+    unsigned char targetRows[ClearTargetStride]{};
+    unsigned char harvestRows[ClearHarvestStride]{};
+    put_field(targetVector, 0, targetRows + 0);
+    put_field(targetVector, BindingCountOffset, 1u);
+    put_field(harvestVector, 0, harvestRows + 0);
+    put_field(harvestVector, BindingCountOffset, 1u);
+    put_field(node, ClearTargetBindings, targetVector + 0);
+    put_field(node, ClearHarvestBindings, harvestVector + 0);
+    put_field(targetRows, 0, 56);
+    put_field(targetRows, sizeof(int), 10);
+    put_field(harvestRows, 0, static_cast<unsigned char>(1));
+    put_field(player, PlayerInstanceId, 3);
+    policy.width = 74;
+    policy.height = 46;
+    policy.allowed[3] = true;
+    policy.protectHarvests = true;
+    enabled = true;
+    original_clear_plot_update = +[](unsigned char* node, const unsigned char*, void*) {
+        put_field(node, ClearSelectedWorker, 2228225);
+        if (test_bump_epoch)
+            ++generation;
+        return test_base;
+    };
+    const auto clear = [&] { return hook_clear_plot_update(node, player, nullptr); };
+    test_base = ClearReady;
+    CHECK(clear() == ClearFailed && read_field<int>(node, ClearSelectedWorker) == NoSelectedWorker);
+    CHECK(harvest_rejected == 1 && first_harvest_rejection[2] == 2228225 && active == 0);
+    test_base = 2;
+    CHECK(clear() == 2 && read_field<int>(node, ClearSelectedWorker) == 2228225);
+    test_base = ClearReady;
+    put_field(harvestRows, 0, static_cast<unsigned char>(0));
+    CHECK(clear() == ClearReady && harvest_rejected == 1);
+    put_field(harvestRows, 0, static_cast<unsigned char>(1));
+    put_field(targetRows, 0, 55);
+    CHECK(clear() == ClearReady && harvest_rejected == 1);
+    put_field(targetRows, 0, 56);
+    put_field(node, ClearTargetIndex, 1u);
+    CHECK(clear() == ClearReady && harvest_rejected == 1);
+    put_field(node, ClearTargetIndex, 0u);
+    policy.allowed[3] = false;
+    CHECK(clear() == ClearReady && harvest_rejected == 1);
+    policy.allowed[3] = true;
+    test_bump_epoch = true;
+    CHECK(clear() == ClearReady && read_field<int>(node, ClearSelectedWorker) == 2228225);
+    test_bump_epoch = false;
+    policy.protectHarvests = false;
+    CHECK(clear() == ClearReady && harvest_rejected == 1);
+    policy.builderCount = 2;
+    policy.builders[1] = {3, 65536, 797, 1};
+    CHECK(builder_order(policy.builders[0], policy.builders[1]));
+    CHECK(protects_harvest(3, 796) && protects_harvest(3, 797) && !protects_harvest(4, 796));
+    CHECK(builder_adjustment({3, 65536, 797, 1}).deltaQ8 == 0 &&
+        !builder_adjustment({3, 65536, 797, 1}).reject);
 #undef CHECK
     return n;
 }
