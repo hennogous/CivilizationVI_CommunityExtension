@@ -16,16 +16,24 @@ namespace Runtime {
 	extern Log::Logger* MainLogger;
 
 	namespace Base {
+		struct ExecutableProfile {
+			const char* name;
+			const char* executableSha;
+			const char* gameCoreSha;
+			uintptr_t publishEvents;
+			uintptr_t luaCriticalSection;
+			uintptr_t forgeGetLock;
+			uintptr_t forgeReleaseLock;
+			uintptr_t forgeManagerSlot;
+			unsigned char publishPrefix[24];
+		};
+
 		using EXP_GetLogPath_t = size_t(__fastcall*)(wchar_t* pszOutBuffer, const wchar_t* pszSubPath);
 		extern EXP_GetLogPath_t EXP_GetLogPath;
 
-		using EnterLuaCriticalSection_t = void(*)(void);
-		extern EnterLuaCriticalSection_t EnterLuaCriticalSection;
-
-		using LeaveLuaCriticalSection_t = void(*)(void);
-		extern LeaveLuaCriticalSection_t LeaveLuaCriticalSection;
-
 		extern void Create();
+		extern bool SelectExecutableProfile();
+		extern const ExecutableProfile* GetExecutableProfile();
 	}
 
 	// Should only be called once
