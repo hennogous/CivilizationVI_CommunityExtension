@@ -83,6 +83,13 @@ namespace Runtime {
 
 	bool InstallHookGroup(std::span<const HookSpec> hooks);
 
+	// Replace one verified five-byte instruction with a near CALL. The target
+	// must replay the instruction and obey the site's ABI. Install during
+	// serialized initialization. Runtime pins the adapter's target module and
+	// owns the sole relay for the process. A game-context reset retires policy.
+	bool InstallInstructionCall(uintptr_t rva, std::span<const unsigned char, 5> expected,
+		void (*target)());
+
 	extern void InitConsole();
 	extern void CloseConsole();
 

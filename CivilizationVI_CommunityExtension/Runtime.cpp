@@ -2,6 +2,7 @@
 #include "MinHook.h"
 #include <iostream>
 #include "HavokScript.h"
+#include <algorithm>
 #include <array>
 #include <bcrypt.h>
 #include <cstring>
@@ -176,9 +177,128 @@ namespace Runtime {
 		return true;
 	}
 
+
+namespace {
+	struct InstructionCall {
+		unsigned char* site{};
+		void* relay{};
+		DWORD originalProtection{};
+		std::array<unsigned char, 5> original{};
+		std::array<unsigned char, 5> replacement{};
+	};
+
+	// The adapter is installed once before the first game context is created.
+	// Its target module is pinned. Context changes retire policy, not code.
+	InstructionCall instructionCall;
+
+	void* AllocateCallRelay(uintptr_t returnAddress, void (*target)()) {
+		using AllocateNear = void* (WINAPI*)(HANDLE, void*, SIZE_T, ULONG, ULONG,
+			MEM_EXTENDED_PARAMETER*, ULONG);
+		const auto allocate = reinterpret_cast<AllocateNear>(
+			GetProcAddress(GetModuleHandleW(L"KernelBase.dll"), "VirtualAlloc2"));
+		if (!allocate)
+			return nullptr;
+
+		SYSTEM_INFO info{};
+		GetSystemInfo(&info);
+		const auto alignment = static_cast<uintptr_t>(info.dwAllocationGranularity);
+		const auto center = returnAddress & ~(alignment - 1);
+		// Stay inside the signed CALL range, allowing for the page and alignment.
+		constexpr uintptr_t reach = 0x7fff0000;
+		MEM_ADDRESS_REQUIREMENTS range{};
+		range.LowestStartingAddress = reinterpret_cast<void*>((std::max)(
+			center > reach ? center - reach : 0, reinterpret_cast<uintptr_t>(info.lpMinimumApplicationAddress)));
+		range.HighestEndingAddress = reinterpret_cast<void*>((std::min)(
+			center + reach - 1, reinterpret_cast<uintptr_t>(info.lpMaximumApplicationAddress)));
+		MEM_EXTENDED_PARAMETER parameter{};
+		parameter.Type = MemExtendedParameterAddressRequirements;
+		parameter.Pointer = &range;
+		auto* relay = static_cast<unsigned char*>(allocate(GetCurrentProcess(), nullptr,
+			info.dwPageSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE, &parameter, 1));
+		if (!relay)
+			return nullptr;
+
+		// JMP [RIP+0] leaves every register and the caller's return address intact.
+		constexpr unsigned char jump[] = {0xff, 0x25, 0, 0, 0, 0};
+		std::memcpy(relay, jump, sizeof jump);
+		std::memcpy(relay + sizeof jump, &target, sizeof target);
+		DWORD previous{};
+		if (!VirtualProtect(relay, info.dwPageSize, PAGE_EXECUTE_READ, &previous) ||
+			!FlushInstructionCache(GetCurrentProcess(), relay, sizeof jump + sizeof target)) {
+			VirtualFree(relay, 0, MEM_RELEASE);
+			return nullptr;
+		}
+		return relay;
+	}
+
+	void RestoreInstructionCall() {
+		auto& patch = instructionCall;
+		if (!patch.relay)
+			return;
+		DWORD discarded{};
+		if (std::memcmp(patch.site, patch.replacement.data(), patch.replacement.size()) == 0 &&
+			VirtualProtect(patch.site, patch.original.size(), PAGE_EXECUTE_READWRITE, &discarded))
+			std::memcpy(patch.site, patch.original.data(), patch.original.size());
+		if (std::memcmp(patch.site, patch.original.data(), patch.original.size()) == 0) {
+			const bool restored = VirtualProtect(patch.site, patch.original.size(),
+				patch.originalProtection, &discarded);
+			const bool flushed = FlushInstructionCache(GetCurrentProcess(), patch.site, patch.original.size());
+			if (restored && flushed) {
+				VirtualFree(patch.relay, 0, MEM_RELEASE);
+				patch = {};
+				return;
+			}
+		}
+		MainLogger->Error("Could not restore the verified GameCore instruction call");
+	}
+}
+
+	bool InstallInstructionCall(uintptr_t rva, std::span<const unsigned char, 5> expected,
+		void (*target)()) {
+		auto* site = GetGameCoreGlobalAt<unsigned char*>(rva);
+		if (instructionCall.relay || !target || std::memcmp(site, expected.data(), expected.size()))
+			return false;
+		const auto returnAddress = reinterpret_cast<uintptr_t>(site + expected.size());
+		void* relay = AllocateCallRelay(returnAddress, target);
+		if (!relay)
+			return false;
+		const auto displacement = reinterpret_cast<intptr_t>(relay) - static_cast<intptr_t>(returnAddress);
+		DWORD previous{};
+		HMODULE targetModule{};
+		// A failed rollback must never leave a CALL to an unloaded module.
+		// Once installed, the adapter and its target are process-owned.
+		constexpr DWORD pinTarget = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN;
+		if (displacement < INT32_MIN || displacement > INT32_MAX ||
+			!GetModuleHandleExW(pinTarget, reinterpret_cast<LPCWSTR>(target), &targetModule) ||
+			!VirtualProtect(site, expected.size(), PAGE_EXECUTE_READWRITE, &previous)) {
+			VirtualFree(relay, 0, MEM_RELEASE);
+			return false;
+		}
+
+		auto& patch = instructionCall;
+		patch.site = site;
+		patch.relay = relay;
+		patch.originalProtection = previous;
+		std::copy(expected.begin(), expected.end(), patch.original.begin());
+		patch.replacement[0] = 0xe8; // CALL rel32
+		const auto relative = static_cast<int32_t>(displacement);
+		std::memcpy(patch.replacement.data() + 1, &relative, sizeof relative);
+		std::memcpy(site, patch.replacement.data(), patch.replacement.size());
+		DWORD discarded{};
+		if (FlushInstructionCache(GetCurrentProcess(), site, patch.replacement.size()) &&
+			VirtualProtect(site, patch.replacement.size(), previous, &discarded))
+			return true;
+
+		// Retain the relay and ownership record unless both code and page
+		// protection are restored. An unpublished target passes the score through.
+		RestoreInstructionCall();
+		return false;
+	}
+
 	// Call on dll exit
 	void Destroy() {
 		if (GameCore) {
+			RestoreInstructionCall();
 			MH_DisableHook(MH_ALL_HOOKS);
 			MH_Uninitialize();
 			FreeLibrary(GameCore);

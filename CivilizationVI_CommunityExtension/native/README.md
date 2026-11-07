@@ -49,6 +49,30 @@ late matrix and row alias were verified in the
 A changed GameCore requires requalifying ABI, call-site register use and layout.
 The game owns every pointer. Bounds checks alone cannot guarantee lifetime.
 
+## Optional ordinary building nomination
+
+The pinned Windows XP2 selector compares an effective Q8 building score after
+its ordinary prerequisite checks. At RVA `3e49d5`, CE replaces a verified
+five-byte flag restore with a CALL through a near relay. The MASM entry preserves
+volatile registers, replays the flag restore and returns to the untouched
+comparison at `3e49da`. The frame supplies the original caller return and
+flags. Only return `3e160a` with flags 0/0 may receive a bid.
+
+Runtime owns the relay and original bytes. Unsupported bytes, unavailable
+near allocation or a failed patch leave this capability unavailable. Runtime
+pins the target module for the process before replacing the instruction, so
+failed restoration cannot strand a call into unloaded code. Context reset
+retires the published policy. The adapter changes one effective score only.
+Cached values, accepted offers
+and production arbitration keep their native values.
+
+`CE_AIBuildingNominationBid(player, city, building, deltaQ8)` stages a positive
+preference inside the existing Begin/Allow/Commit publication. The cap is
+512 score units (131,072 Q8). The strongest duplicate wins. Nonpositive base
+scores and arithmetic overflow are preserved. `CE_AIBuildingNominationStatus()`
+reports readiness, the cap and the first applied bid in a publication.
+The data and economic policy belong to the calling mod.
+
 ## Existing project integration
 
 Use CE's existing Visual Studio solution and dependency setup. The feature
@@ -203,7 +227,9 @@ try {
 } finally { Pop-Location }
 ```
 
-Expected results are 50 district-score checks and four hook-group checks.
+Expected results are 74 district-score checks and four hook-group checks.
+The instruction-call check exercises byte refusal, near-relay delivery and
+restoration with an executable synthetic caller.
 The three failure-path diagnostics are expected in the isolated host.
 
 ## Earlier C port qualification checkpoint — 5 November 2026

@@ -16,6 +16,14 @@ inline constexpr uintptr_t CalculateDistrictValuesRva = 0x3dfee0;
 inline constexpr uintptr_t DistrictAggregationCallRva = 0x3e293c;
 inline constexpr uintptr_t DistrictAggregationReturnRva = 0x3e2941;
 inline constexpr unsigned char X64CallRel32 = 0xe8;
+inline constexpr uintptr_t GetBestBuildingRva = 0x3e4710;
+inline constexpr uintptr_t OrdinaryBuildingNominationCallRva = 0x3e1605;
+inline constexpr uintptr_t OrdinaryBuildingNominationReturnRva = 0x3e160a;
+// Both missing-prerequisite checks have passed at the flag restore.
+inline constexpr uintptr_t BuildingNominationRestoreFlagRva = 0x3e49d5;
+inline constexpr uintptr_t BuildingNominationComparisonRva = 0x3e49da;
+inline constexpr unsigned char BuildingNominationRestoreFlag[] = {0x44, 0x0f, 0xb6, 0x6d, 0x48};
+inline constexpr unsigned char BuildingNominationCompare[] = {0x44, 0x3b, 0x36, 0x7e, 0x11, 0x44, 0x89, 0x36};
 inline constexpr uintptr_t GetBestDistrictRva = 0x3e4a50;
 inline constexpr uintptr_t DistrictPresentValueRva = 0x3e7f40;
 

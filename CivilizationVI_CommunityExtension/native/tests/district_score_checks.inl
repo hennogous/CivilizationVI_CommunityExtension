@@ -367,6 +367,17 @@ int run_self_test() {
     CHECK(protects_harvest(3, 796) && protects_harvest(3, 797) && !protects_harvest(4, 796));
     CHECK(builder_adjustment({3, 65536, 797, 1}).deltaQ8 == 0 &&
         !builder_adjustment({3, 65536, 797, 1}).reject);
+    staging.nominationCount = 3;
+    staging.nominations[0] = {3, 42, 19, 100};
+    staging.nominations[1] = {1, 42, 19, 300};
+    staging.nominations[2] = {3, 42, 19, 200};
+    finish_nominations(staging);
+    CHECK(staging.nominationCount == 2 && staging.nominations[0].player == 1 &&
+        staging.nominations[1].deltaQ8 == 200);
+    CHECK(adjusted_nomination_score(93359, 114688) == 208047);
+    CHECK(adjusted_nomination_score(0, 100) == 0 && adjusted_nomination_score(-1, 100) == -1);
+    CHECK(adjusted_nomination_score(INT_MAX - 1, 100) == INT_MAX - 1 &&
+        adjusted_nomination_score(100, MaxNominationBidQ8 + 1) == 100);
 #undef CHECK
     return n;
 }
