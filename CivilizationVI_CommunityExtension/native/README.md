@@ -244,3 +244,33 @@ The [earlier prototype report](https://hennogous.github.io/Henno-Mods/ai/sources
 preserves the recovered signatures and its distinct runtime observations; its
 counts should not be substituted for this develop build. The old PR is closed.
 Final capability scope will be reviewed before a replacement PR to develop.
+
+## Builder supplier protection
+
+The optional improvement-score consumer uses the existing Begin, Allow,
+Commit and Disable transaction. Stage one or more compatible improvement IDs
+per protected site with CE_AIBuilderProtectionAllow(player, city, plot,
+improvement). Here Allow means this improvement remains eligible at a listed
+site. A site without entries has ordinary scoring. Every publication replaces
+both policies. A caller that lacks the optional capability can continue to
+publish district entries alone.
+
+CE_AIBuilderProtectionStatus returns readiness, allowance count, changed
+score count, faults and the first applied tuple with the old and new score
+for the current publication. The evidence window rolls at Commit. There is
+no per-call journal or journal-dependent write cutoff for this consumer.
+
+The ordinary Win64 function hook at 52a8c0 preserves the original call and
+returned pointer. The qualified caller at 3e3423 copies its score unchanged
+to the improvement array. For a published site, the hook checks the exact
+player, city, coordinates and improvement before substituting the engine's
+ineligible score read from b66cb0. Native ranking, pathing, reservations and
+job execution remain native. New publications take effect on a fresh score
+calculation. Disable retires future writes and does not clear existing
+native cache or cancel an assigned job.
+
+This consumer shares the GameCore identity and lifecycle with district
+scores. Its own prefix or hook failure leaves the district capability
+available. A returned-pointer or output-shape mismatch stops Builder writes
+for the context and leaves the original score in place. There is no Lua call
+from the AI worker.

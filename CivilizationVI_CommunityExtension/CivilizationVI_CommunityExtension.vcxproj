@@ -182,6 +182,7 @@
     <ClInclude Include="Data.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="native\builder_protection.inl" />
     <None Include="native\README.md" />
     <None Include="plh\thunk_x86.asm" />
   </ItemGroup>

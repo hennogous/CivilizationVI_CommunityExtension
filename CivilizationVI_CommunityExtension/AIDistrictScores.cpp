@@ -20,6 +20,8 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <climits>
+#include <tuple>
 #include <intrin.h>
 #include <limits>
 #include <memory>
@@ -55,17 +57,23 @@ struct Sample {
     Entry key;
     int base, result;
 };
+// One or more compatible improvement IDs at a protected supplier site.
+struct BuilderAllowance {
+    int player, city, plot, improvement;
+};
 struct Policy {
     int version{}, width{}, height{}, districts{}, count{};
     bool hasLateEntries{};
     std::array<bool, MaxPlayers> allowed{};
     std::array<Entry, MaxEntries> entries{};
+    int builderCount{};
+    std::array<BuilderAllowance, MaxEntries> builders{};
 };
 
 void clear_policy(Policy& value) {
     // Old entries remain unreachable once count is zero. Avoid materializing
     // the entire fixed table as a temporary on the gameplay Lua stack.
-    value.version = value.width = value.height = value.districts = value.count = 0;
+    value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
     value.hasLateEntries = false;
     value.allowed.fill(false);
 }
@@ -575,6 +583,8 @@ extern "C" int* AIDistrictScoreNet(int* out, unsigned district, int* time, int r
     return returned;
 }
 
+#include "native/builder_protection.inl"
+
 namespace {
 
 int integer_result(lua_State* L, int value) {
@@ -659,6 +669,38 @@ int l_entry(lua_State* L) {
     return integer_result(L, stage_entry(entry, false));
 }
 
+int l_builder_allow(lua_State* L) {
+    const BuilderAllowance entry{hks::checkinteger(L, 1), hks::checkinteger(L, 2),
+        hks::checkinteger(L, 3), hks::checkinteger(L, 4)};
+    bool ok;
+    {
+        std::unique_lock guard(policyMutex);
+        ok = builder_ready && !builder_faults && staging_valid && staging.builderCount < MaxEntries &&
+            entry.player >= 0 && entry.player < MaxPlayers && staging.allowed[entry.player] &&
+            entry.city >= 0 && entry.plot >= 0 && entry.plot < staging.width * staging.height &&
+            entry.improvement >= 0;
+        if (ok)
+            staging.builders[staging.builderCount++] = entry;
+        else
+            staging_valid = false;
+    }
+    return integer_result(L, ok);
+}
+
+int l_builder_status(lua_State* L) {
+    char output[400];
+    {
+        std::shared_lock guard(policyMutex);
+        const auto& a = first_builder_change;
+        snprintf(output, sizeof output,
+            "{\"ready\":%d,\"entries\":%d,\"changed\":%ld,\"faults\":%ld,\"first\":[%d,%d,%d,%d,%d,%d]}",
+            static_cast<int>(builder_ready), policy.builderCount, builder_changed, builder_faults,
+            a[0], a[1], a[2], a[3], a[4], a[5]);
+    }
+    push_json(L, output, strlen(output));
+    return 1;
+}
+
 int l_late_entry(lua_State* L) {
     // Public argument order follows the calculation, then the delta.
     const int player = hks::checkinteger(L, 1);
@@ -680,7 +722,16 @@ int l_commit(lua_State* L) {
         std::unique_lock guard(policyMutex);
         ok = staging_valid && hooks_ready && !faults;
         if (ok) {
+            const auto first = staging.builders.begin();
+            const auto end = first + staging.builderCount;
+            // Sort once at publication. Workers look up only the candidate's site.
+            std::sort(first, end, builder_order);
+            staging.builderCount = static_cast<int>(std::unique(first, end, [](const auto& a, const auto& b) {
+                return !builder_order(a, b) && !builder_order(b, a);
+            }) - first);
             policy = staging;
+            builder_changed = 0;
+            first_builder_change = {};
             changed = matched = sample_count = trace_count = 0;
             generation++;
             enabled = true;
@@ -925,6 +976,8 @@ void reset_policy(void) {
     generation++;
     clear_policy(policy);
     changed = matched = sample_count = trace_count = faults = 0;
+    builder_changed = builder_faults = 0;
+    first_builder_change = {};
 }
 
 #ifdef CE_AI_DISTRICT_SCORES_TEST
@@ -952,6 +1005,9 @@ bool Create() {
     if (!length || length >= std::size(path) || !verify_file(path))
         return false;
     hooks_ready = install_hooks();
+    // The Builder boundary is optional. An unsupported prefix must not
+    // disable the already qualified district interface.
+    builder_ready = hooks_ready && install_builder_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     return hooks_ready;
 }
 
@@ -961,6 +1017,8 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_begin, "CE_AIDistrictScoresBegin", hks::LUA_GLOBAL, "CE_AIDistrictScoresBegin");
     PushLuaMethod(L, l_allow, "CE_AIDistrictScoresAllow", hks::LUA_GLOBAL, "CE_AIDistrictScoresAllow");
     PushLuaMethod(L, l_entry, "CE_AIDistrictScoresEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresEntry");
+    PushLuaMethod(L, l_builder_allow, "CE_AIBuilderProtectionAllow", hks::LUA_GLOBAL, "CE_AIBuilderProtectionAllow");
+    PushLuaMethod(L, l_builder_status, "CE_AIBuilderProtectionStatus", hks::LUA_GLOBAL, "CE_AIBuilderProtectionStatus");
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
     PushLuaMethod(L, l_commit, "CE_AIDistrictScoresCommit", hks::LUA_GLOBAL, "CE_AIDistrictScoresCommit");
     PushLuaMethod(L, l_disable, "CE_AIDistrictScoresDisable", hks::LUA_GLOBAL, "CE_AIDistrictScoresDisable");

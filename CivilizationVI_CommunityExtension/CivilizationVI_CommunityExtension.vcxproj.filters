@@ -285,6 +285,7 @@
     <MASM Include="native\hook_entry.asm">
       <Filter>Source Files\AI District Scores</Filter>
     </MASM>
+    <None Include="native\builder_protection.inl" />
     <None Include="native\README.md" />
   </ItemGroup>
 </Project>
