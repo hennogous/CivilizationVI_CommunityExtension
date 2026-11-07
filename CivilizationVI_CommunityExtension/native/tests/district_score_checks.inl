@@ -291,6 +291,22 @@ int run_self_test() {
     CHECK(*score == lateNative && changed == 1 && active == 0);
     test_bump_epoch = false;
     cacheTestScore = nullptr;
+
+    // A bid applies only to the exact compatible improvement. The other
+    // improvements at that supplier still receive the normal protection.
+    policy.builderCount = 1;
+    policy.builders[0] = {3, 131073, 796, 5, MaxBuilderBidQ8};
+    const auto pasture = builder_adjustment({3, 131073, 796, 5});
+    const auto farm = builder_adjustment({3, 131073, 796, 1});
+    const auto elsewhere = builder_adjustment({3, 131073, 795, 5});
+    CHECK(!pasture.reject && pasture.deltaQ8 == 8192);
+    CHECK(farm.reject && !farm.deltaQ8);
+    CHECK(!elsewhere.reject && !elsewhere.deltaQ8);
+    CHECK(adjusted_builder_score(29056, InvalidScore, pasture) == 37248);
+    CHECK(adjusted_builder_score(0, InvalidScore, pasture) == 0);
+    CHECK(adjusted_builder_score(InvalidScore, InvalidScore, pasture) == InvalidScore);
+    CHECK(adjusted_builder_score(INT_MAX, InvalidScore, pasture) == INT_MAX);
+    CHECK(adjusted_builder_score(38655, InvalidScore, farm) == InvalidScore);
 #undef CHECK
     return n;
 }

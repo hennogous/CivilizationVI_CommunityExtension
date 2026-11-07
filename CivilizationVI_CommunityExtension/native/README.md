@@ -255,6 +255,18 @@ site. A site without entries has ordinary scoring. Every publication replaces
 both policies. A caller that lacks the optional capability can continue to
 publish district entries alone.
 
+CE_AIBuilderProtectionBid(player, city, plot, improvement, deltaQ8) stages
+the same allowance with a bounded preference. The accepted range is 0 to
+32 score units (8,192 in Q8). The strongest preference for an identical key
+wins at publication. The hook adds a bid only to a positive result from the
+already eligible native caller, and skips arithmetic overflow. A zero,
+negative or ineligible result stays native. Callers can continue to use
+CE_AIBuilderProtectionAllow with no preference.
+
+CE_AIBuilderProtectionStatus also reports maxBidQ8, bids and firstBid.
+The positive-bid count and first tuple are separate from protection
+so a rejected improvement cannot hide evidence of a successful bid.
+
 CE_AIBuilderProtectionStatus returns readiness, allowance count, changed
 score count, faults and the first applied tuple with the old and new score
 for the current publication. The evidence window rolls at Commit. There is

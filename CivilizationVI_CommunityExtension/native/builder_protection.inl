@@ -11,8 +11,8 @@ constexpr unsigned char ImprovementNetPrefix[] = {
 using ImprovementNetFn = int* (__cdecl *)(int*, unsigned, const void*, int, int, void*, void*);
 ImprovementNetFn original_improvement_net{};
 bool builder_ready{};
-long builder_changed{}, builder_faults{};
-std::array<int, 6> first_builder_change{};
+long builder_changed{}, builder_bids{}, builder_faults{};
+std::array<int, 6> first_builder_change{}, first_builder_bid{};
 
 auto builder_site(const BuilderAllowance& entry) {
     return std::tie(entry.player, entry.city, entry.plot);
@@ -32,13 +32,30 @@ auto supplier_at(const BuilderAllowance& key) {
     return at != end && builder_site(*at) == builder_site(key) ? at : end;
 }
 
-bool protected_improvement(const BuilderAllowance& key) {
+struct BuilderAdjustment {
+    bool reject{};
+    int deltaQ8{};
+};
+
+BuilderAdjustment builder_adjustment(const BuilderAllowance& key) {
     const auto end = policy.builders.begin() + policy.builderCount;
     const auto at = supplier_at(key);
     if (at == end)
-        return false;
+        return {};
     const auto allowed = std::lower_bound(at, end, key, builder_order);
-    return allowed == end || builder_order(key, *allowed);
+    if (allowed == end || builder_order(key, *allowed))
+        return {true, 0};
+    return {false, allowed->deltaQ8};
+}
+
+int adjusted_builder_score(int base, int floor, const BuilderAdjustment& adjustment) {
+    if (adjustment.reject)
+        return (std::min)(base, floor);
+    // The row evaluator's eligibility tests have already passed. Preserve
+    // zero, negative and sentinel values, and avoid signed overflow.
+    if (base > 0 && base <= INT_MAX - adjustment.deltaQ8)
+        return base + adjustment.deltaQ8;
+    return base;
 }
 
 int* __cdecl hook_improvement_net(int* out, unsigned improvement, const void* discount,
@@ -46,7 +63,7 @@ int* __cdecl hook_improvement_net(int* out, unsigned improvement, const void* di
     ActiveCall activity;
     BuilderAllowance key{};
     long epoch{};
-    bool protect{};
+    BuilderAdjustment adjustment;
     if (enabled.load() && _ReturnAddress() ==
         Runtime::GetGameCoreGlobalAt<void*>(ImprovementRowReturnRva)) {
         std::shared_lock guard(policyMutex);
@@ -62,27 +79,30 @@ int* __cdecl hook_improvement_net(int* out, unsigned improvement, const void* di
                 x >= 0 && x < policy.width && y >= 0 && y < policy.height) {
                 key = {player, read_field<int>(c, CityIdOffset), y * policy.width + x,
                     static_cast<int>(improvement)};
-                protect = protected_improvement(key);
+                adjustment = builder_adjustment(key);
                 epoch = generation;
             }
         }
     }
 
     int* result = original_improvement_net(out, improvement, discount, delay, horizon, plot, city);
-    if (protect) {
+    if (adjustment.reject || adjustment.deltaQ8) {
         std::unique_lock guard(policyMutex);
         if (enabled && generation == epoch && !builder_faults) {
             const int floor = *Runtime::GetGameCoreGlobalAt<const int*>(ImprovementScoreFloorRva);
             if (result != out || !readable(out, sizeof(*out), true) || floor >= 0) {
                 ++builder_faults;
             }
-            else if (*out > floor) {
-                // This is the same sentinel the engine stores for an ineligible
-                // improvement. The native ranking can still choose other rows.
-                if (builder_changed == 0)
-                    first_builder_change = {key.player, key.city, key.plot, key.improvement, *out, floor};
-                ++builder_changed;
-                *out = floor;
+            else {
+                const int next = adjusted_builder_score(*out, floor, adjustment);
+                if (next != *out) {
+                    auto& count = adjustment.reject ? builder_changed : builder_bids;
+                    auto& first = adjustment.reject ? first_builder_change : first_builder_bid;
+                    if (count == 0)
+                        first = {key.player, key.city, key.plot, key.improvement, *out, next};
+                    ++count;
+                    *out = next;
+                }
             }
         }
     }

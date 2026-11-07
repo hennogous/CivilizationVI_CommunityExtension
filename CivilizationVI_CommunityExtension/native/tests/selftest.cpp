@@ -95,7 +95,7 @@ int main() {
     const int checks = AI::DistrictScores::SelfTest();
     std::printf("DistrictScores checks=%d\n", checks);
     std::fflush(stdout);
-    if (checks != 50)
+    if (checks != 58)
         return 1;
     Log::Logger logger("HookGroupSelfTest");
     Runtime::MainLogger = &logger;

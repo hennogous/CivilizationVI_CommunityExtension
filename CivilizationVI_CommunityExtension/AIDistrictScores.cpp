@@ -41,6 +41,7 @@ constexpr int MaxSamples = 64;
 constexpr int TraceCapacity = 16384;
 constexpr int TracePageSize = 64;
 constexpr int Q8Units = 256;
+constexpr int MaxBuilderBidQ8 = 32 * Q8Units;
 constexpr int InvalidScore = -9999 * Q8Units;
 constexpr int MinimumScore = -4096 * Q8Units;
 constexpr int MinDelta = -1024 * Q8Units;
@@ -60,6 +61,7 @@ struct Sample {
 // One or more compatible improvement IDs at a protected supplier site.
 struct BuilderAllowance {
     int player, city, plot, improvement;
+    int deltaQ8{};
 };
 struct Policy {
     int version{}, width{}, height{}, districts{}, count{};
@@ -671,22 +673,32 @@ int l_entry(lua_State* L) {
     return integer_result(L, stage_entry(entry, false));
 }
 
-int l_builder_allow(lua_State* L) {
-    const BuilderAllowance entry{hks::checkinteger(L, 1), hks::checkinteger(L, 2),
-        hks::checkinteger(L, 3), hks::checkinteger(L, 4)};
+bool stage_builder_allowance(const BuilderAllowance& entry) {
     bool ok;
     {
         std::unique_lock guard(policyMutex);
         ok = builder_ready && !builder_faults && staging_valid && staging.builderCount < MaxEntries &&
             entry.player >= 0 && entry.player < MaxPlayers && staging.allowed[entry.player] &&
             entry.city >= 0 && entry.plot >= 0 && entry.plot < staging.width * staging.height &&
-            entry.improvement >= 0;
+            entry.improvement >= 0 && entry.deltaQ8 >= 0 && entry.deltaQ8 <= MaxBuilderBidQ8;
         if (ok)
             staging.builders[staging.builderCount++] = entry;
         else
             staging_valid = false;
     }
-    return integer_result(L, ok);
+    return ok;
+}
+
+int l_builder_allow(lua_State* L) {
+    const BuilderAllowance entry{hks::checkinteger(L, 1), hks::checkinteger(L, 2),
+        hks::checkinteger(L, 3), hks::checkinteger(L, 4)};
+    return integer_result(L, stage_builder_allowance(entry));
+}
+
+int l_builder_bid(lua_State* L) {
+    const BuilderAllowance entry{hks::checkinteger(L, 1), hks::checkinteger(L, 2),
+        hks::checkinteger(L, 3), hks::checkinteger(L, 4), hks::checkinteger(L, 5)};
+    return integer_result(L, stage_builder_allowance(entry));
 }
 
 int l_builder_status(lua_State* L) {
@@ -694,10 +706,13 @@ int l_builder_status(lua_State* L) {
     {
         std::shared_lock guard(policyMutex);
         const auto& a = first_builder_change;
+        const auto& b = first_builder_bid;
         snprintf(output, sizeof output,
-            "{\"ready\":%d,\"entries\":%d,\"changed\":%ld,\"faults\":%ld,\"first\":[%d,%d,%d,%d,%d,%d]}",
+            "{\"ready\":%d,\"entries\":%d,\"changed\":%ld,\"faults\":%ld,\"first\":[%d,%d,%d,%d,%d,%d],"
+            "\"maxBidQ8\":%d,\"bids\":%ld,\"firstBid\":[%d,%d,%d,%d,%d,%d]}",
             static_cast<int>(builder_ready), policy.builderCount, builder_changed, builder_faults,
-            a[0], a[1], a[2], a[3], a[4], a[5]);
+            a[0], a[1], a[2], a[3], a[4], a[5], MaxBuilderBidQ8, builder_bids,
+            b[0], b[1], b[2], b[3], b[4], b[5]);
     }
     push_json(L, output, strlen(output));
     return 1;
@@ -752,14 +767,20 @@ int l_commit(lua_State* L) {
         if (ok) {
             const auto first = staging.builders.begin();
             const auto end = first + staging.builderCount;
-            // Sort once at publication. Workers look up only the candidate's site.
-            std::sort(first, end, builder_order);
+            // Sort once. For shared suppliers keep the strongest bid on
+            // an identical improvement. Stacking would exaggerate its value.
+            std::sort(first, end, [](const auto& a, const auto& b) {
+                if (builder_order(a, b)) return true;
+                if (builder_order(b, a)) return false;
+                return a.deltaQ8 > b.deltaQ8;
+            });
             staging.builderCount = static_cast<int>(std::unique(first, end, [](const auto& a, const auto& b) {
                 return !builder_order(a, b) && !builder_order(b, a);
             }) - first);
             policy = staging;
-            builder_changed = 0;
+            builder_changed = builder_bids = 0;
             first_builder_change = {};
+            first_builder_bid = {};
             wonder_changed = 0;
             first_wonder_change = {};
             changed = matched = sample_count = trace_count = 0;
@@ -1006,7 +1027,8 @@ void reset_policy(void) {
     generation++;
     clear_policy(policy);
     changed = matched = sample_count = trace_count = faults = 0;
-    builder_changed = builder_faults = wonder_changed = wonder_faults = 0;
+    builder_changed = builder_bids = builder_faults = wonder_changed = wonder_faults = 0;
+    first_builder_bid = {};
     first_wonder_change = {};
     first_builder_change = {};
 }
@@ -1051,6 +1073,7 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_entry, "CE_AIDistrictScoresEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresEntry");
     PushLuaMethod(L, l_builder_allow, "CE_AIBuilderProtectionAllow", hks::LUA_GLOBAL, "CE_AIBuilderProtectionAllow");
     PushLuaMethod(L, l_builder_status, "CE_AIBuilderProtectionStatus", hks::LUA_GLOBAL, "CE_AIBuilderProtectionStatus");
+    PushLuaMethod(L, l_builder_bid, "CE_AIBuilderProtectionBid", hks::LUA_GLOBAL, "CE_AIBuilderProtectionBid");
     PushLuaMethod(L, l_stage_wonder_protection, "CE_AISupplierWonderProtectionStage", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStage");
     PushLuaMethod(L, l_wonder_status, "CE_AISupplierWonderProtectionStatus", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStatus");
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
