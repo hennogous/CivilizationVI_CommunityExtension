@@ -41,6 +41,7 @@ using CheckForDistrictFn = void (__cdecl *)(void*);
 CheckForDistrictFn original_check_for_district{};
 bool repair_ready{};
 std::atomic<bool> repairs_published{};
+long repair_considered{};
 long repair_admitted{}, repair_duplicates{}, repair_rejected{}, repair_faults{};
 std::array<int, 6> first_repair{};
 
@@ -225,20 +226,23 @@ void hook_check_for_district(void* object) {
     long epoch{};
     int width{};
     if (repairs_published.load(std::memory_order_relaxed) && enabled &&
-        readable(build, CityBuildDistrictSlotOffset + sizeof(void*), false) && district_slot_id(build) == -1) {
+        readable(build, CityBuildDistrictSlotOffset + sizeof(void*), false)) {
         city = read_field<unsigned char*>(build, CityBuildCityOffset);
         if (readable(city, CityOwnerOffset + sizeof(int), false)) {
             const int player = read_field<int>(city, CityOwnerOffset);
             const RepairCandidate key{player, read_field<int>(city, CityIdOffset), 0, 0};
-            std::shared_lock guard(policyMutex);
+            std::unique_lock guard(policyMutex);
             if (enabled && repair_ready && !repair_faults && player >= 0 && player < MaxPlayers && policy.allowed[player]) {
                 const auto end = policy.repairs.begin() + policy.repairCount;
                 const auto at = std::lower_bound(policy.repairs.begin(), end, key,
                     [](const auto& a, const auto& b) { return repair_city_key(a) < repair_city_key(b); });
                 if (at != end && repair_city_key(*at) == repair_city_key(key)) {
-                    candidate = *at;
-                    epoch = generation;
-                    width = policy.width;
+                    ++repair_considered;
+                    if (district_slot_id(build) == -1) {
+                        candidate = *at;
+                        epoch = generation;
+                        width = policy.width;
+                    }
                 }
             }
         }
@@ -332,9 +336,9 @@ int l_repair_status(lua_State* L) {
         std::shared_lock guard(policyMutex);
         const auto& a = first_repair;
         length = snprintf(output, sizeof output,
-            "{\"ready\":%d,\"entries\":%d,\"maxCandidates\":%d,\"admitted\":%ld,\"duplicates\":%ld,"
+            "{\"ready\":%d,\"entries\":%d,\"maxCandidates\":%d,\"considered\":%ld,\"admitted\":%ld,\"duplicates\":%ld,"
             "\"rejected\":%ld,\"faults\":%ld,\"first\":[%d,%d,%d,%d,%d,%d]}",
-            static_cast<int>(repair_ready), policy.repairCount, MaxRepairCandidates, repair_admitted,
+            static_cast<int>(repair_ready), policy.repairCount, MaxRepairCandidates, repair_considered, repair_admitted,
             repair_duplicates, repair_rejected, repair_faults, a[0], a[1], a[2], a[3], a[4], a[5]);
     }
     if (length > 0 && length < static_cast<int>(sizeof output))

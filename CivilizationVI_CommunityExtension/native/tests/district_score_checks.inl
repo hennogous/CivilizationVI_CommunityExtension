@@ -195,6 +195,13 @@ int run_self_test() {
     params[1] = 65;
     CHECK(l_trace_read(reinterpret_cast<lua_State*>(params)) == 1 && strstr(test_json, "invalid_trace_page"));
     CHECK(l_trace_count(reinterpret_cast<lua_State*>(params)) == 1 && test_integer == trace_count);
+    int exactSite[] = {4, 1, 7, 8, 30};
+    CHECK(l_district_receipt(reinterpret_cast<lua_State*>(exactSite)) == 1 && strstr(test_json, "\"staged\":1") &&
+        strstr(test_json, "\"scoreAttempts\":") && strstr(test_json, "\"cacheReads\":1"));
+    exactSite[0] = 3;
+    CHECK(l_district_receipt(reinterpret_cast<lua_State*>(exactSite)) == 1 && strstr(test_json, "\"staged\":0") &&
+        strstr(test_json, "\"scoreAttempts\":0"));
+
     for (int i = 0; i < 64; i++)
         samples[i] = Sample{{1, 7, 8, i, 256}, 1000, 1256};
     sample_count = 64;
@@ -262,6 +269,17 @@ int run_self_test() {
         CHECK(lateRow[RowDistrictEligibleOffset] == 0);
     }
     CHECK(lateRow[RowDistrictEligibleOffset] == 9 && *score == 0 && reservation == UnreservedPlot);
+    const int savedEntries = policy.count;
+    policy.count = 0;
+    CHECK(!observe_enter(object).accepted);
+    const auto exclusionOnly = observe_enter(object, true);
+    CHECK(exclusionOnly.accepted && exclusionOnly.key.city == 7);
+    {
+        const SupplierRowMask mask(object, exclusionOnly);
+        CHECK(lateRow[RowDistrictEligibleOffset] == 0);
+    }
+    CHECK(lateRow[RowDistrictEligibleOffset] == 9);
+    policy.count = savedEntries;
     lateRow[RowDistrictEligibleOffset] = 1;
     policy.exclusionCount = 0;
 
@@ -396,6 +414,26 @@ int run_self_test() {
     CHECK(adjusted_nomination_score(0, 100) == 0 && adjusted_nomination_score(-1, 100) == -1);
     CHECK(adjusted_nomination_score(INT_MAX - 1, 100) == INT_MAX - 1 &&
         adjusted_nomination_score(100, MaxNominationBidQ8 + 1) == 100);
+    put_field<int>(city, CityOwnerOffset, 1);
+    put_field<int>(city, CityIdOffset, 7);
+    put_field<void*>(object, CityBuildCityOffset, city);
+    enabled = true;
+    policy.allowed[1] = true;
+    nomination_ready = nominations_published = true;
+    nomination_faults = nomination_changed = 0;
+    policy.nominationCount = 1;
+    policy.nominations[0] = {1, 7, 19, 100};
+    observe_nomination_forecast(city, 18);
+    observe_nomination_forecast(city, 19);
+    const auto nominationCaller = Runtime::GetGameCoreGlobalAt<const void*>(OrdinaryBuildingNominationReturnRva);
+    CHECK(AIBuildingNominationScore(object, 19, 0, nominationCaller) == 0);
+    CHECK(AIBuildingNominationScore(object, 19, 500, nominationCaller) == 600);
+    int exactBuilding[] = {policy.version, 1, 7, 19};
+    CHECK(l_nomination_receipt(asLua(exactBuilding)) == 1 && strstr(test_json, "\"staged\":1") &&
+        strstr(test_json, "\"forecasts\":1") && strstr(test_json, "\"comparisons\":2") &&
+        strstr(test_json, "\"writes\":1"));
+    ++exactBuilding[0];
+    CHECK(l_nomination_receipt(asLua(exactBuilding)) == 1 && strstr(test_json, "\"staged\":0"));
     repair_ready = true;
     staging_valid = true;
     staging.width = 74;

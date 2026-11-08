@@ -68,6 +68,7 @@ struct BuilderAllowance {
 };
 struct BuildingNomination {
     int player, city, building, deltaQ8;
+    int forecasts{}, comparisons{}, writes{};
 };
 struct RepairCandidate {
     int player, city, district, plot;
@@ -295,7 +296,7 @@ Entry* find_city(int player, int city) {
 }
 /* Admit read-only tracing only for a city represented in the current policy.
  * Borrow the City through CityBuild and recheck the owner and local city ID. */
-Observation observe_enter(void* object) {
+Observation observe_enter(void* object, bool includeExclusions = false) {
     Observation o;
     ++calls;
     std::shared_lock guard(policyMutex);
@@ -308,6 +309,20 @@ Observation observe_enter(void* object) {
                 o.hasLateEntries = policy.hasLateEntries;
                 o.epoch = generation;
                 o.key = *e;
+            } else if (includeExclusions) {
+                // An exclusion is independent of scoring. A city may still
+                // compare cached candidates without a score entry this turn.
+                const int player = read_field<int>(city, CityOwnerOffset);
+                const int cityId = read_field<int>(city, CityIdOffset);
+                const auto end = policy.exclusions.begin() + policy.exclusionCount;
+                const auto site = std::find_if(policy.exclusions.begin(), end, [&](const auto& exclusion) {
+                    return exclusion.player == player && exclusion.city == cityId;
+                });
+                if (site != end) {
+                    o.accepted = true;
+                    o.epoch = generation;
+                    o.key = {player, cityId, 0, site->plot, 0};
+                }
             }
         }
     }
@@ -562,7 +577,7 @@ private:
  * unchanged. Observing a winner does not establish a request or construction. */
 int __cdecl hook_best(void* object, int* coordinates) {
     ActiveCall activity;
-    Observation o = observe_enter(object);
+    Observation o = observe_enter(object, true);
     int result;
     {
         const SupplierRowMask mask(object, o);
@@ -667,6 +682,7 @@ extern "C" int* AIDistrictScoreNet(int* out, unsigned district, int* time, int r
     return returned;
 }
 
+namespace { void observe_nomination_forecast(void* city, unsigned building); }
 #include "native/builder_protection.inl"
 #include "native/clear_plot_harvest.inl"
 
@@ -927,7 +943,7 @@ int l_commit(lua_State* L) {
             policy = staging;
             nominations_published.store(policy.nominationCount > 0, std::memory_order_relaxed);
             repairs_published.store(policy.repairCount > 0, std::memory_order_relaxed);
-            repair_admitted = repair_duplicates = repair_rejected = 0;
+            repair_considered = repair_admitted = repair_duplicates = repair_rejected = 0;
             first_repair = {};
             nomination_changed = 0;
             first_nomination_change = {};
@@ -1006,6 +1022,50 @@ int l_status(lua_State* L) {
     push_json(L, output, strlen(output));
     return 1;
 }
+// Query the existing bounded journal for one published site before the next
+// commit. Cache reads, exact score attempts, and stock winners are separate
+// evidence. Only sparse callers should use this readback in normal play.
+int l_district_receipt(lua_State* L) {
+    const int version = hks::checkinteger(L, 1);
+    const Entry key{hks::checkinteger(L, 2), hks::checkinteger(L, 3),
+        hks::checkinteger(L, 4), hks::checkinteger(L, 5), 0};
+    int staged = 0, scoreAttempts = 0, writes = 0, cacheReads = 0, cacheEligible = 0;
+    int citySelections = 0, siteWins = 0, lastReason = -1;
+    {
+        std::shared_lock guard(policyMutex);
+        staged = version == policy.version && find_pair(key.player, key.city, key.district, key.plot);
+        if (staged) {
+            for (int i = 0; i < trace_count; ++i) {
+                const auto& record = trace_records[i];
+                if (record.version != version || record.player != key.player || record.city != key.city)
+                    continue;
+                const bool sameSite = record.district == key.district && record.plot == key.plot;
+                if (record.kind == Best) {
+                    ++citySelections;
+                    siteWins += sameSite;
+                } else if (sameSite && (record.kind == Net || record.kind == Late)) {
+                    ++scoreAttempts;
+                    writes += record.base != record.result;
+                    lastReason = record.reason;
+                } else if (sameSite && record.kind == Cache) {
+                    ++cacheReads;
+                    cacheEligible = record.eligible;
+                }
+            }
+        }
+    }
+    char output[320];
+    const int length = snprintf(output, sizeof output,
+        "{\"staged\":%d,\"scoreAttempts\":%d,\"writes\":%d,\"cacheReads\":%d,\"cacheEligible\":%d,"
+        "\"citySelections\":%d,\"siteWins\":%d,\"lastReason\":%d}",
+        staged, scoreAttempts, writes, cacheReads, cacheEligible, citySelections, siteWins, lastReason);
+    if (length > 0 && length < static_cast<int>(sizeof output))
+        push_json(L, output, static_cast<size_t>(length));
+    else
+        push_json(L, "{}", 2);
+    return 1;
+}
+
 /* Non-consuming zero-based pages; expected generation prevents a caller from
  * accidentally joining records across a publication/context reset. Disable and
  * capture before replacement when a stable complete window is required. Disable
@@ -1189,7 +1249,7 @@ void reset_policy(void) {
     nominations_published.store(false, std::memory_order_relaxed);
     nomination_changed = nomination_faults = 0;
     repairs_published.store(false, std::memory_order_relaxed);
-    repair_admitted = repair_duplicates = repair_rejected = repair_faults = 0;
+    repair_considered = repair_admitted = repair_duplicates = repair_rejected = repair_faults = 0;
     first_repair = {};
     first_nomination_change = {};
     first_harvest_rejection = {};
@@ -1254,6 +1314,8 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_commit, "CE_AIDistrictScoresCommit", hks::LUA_GLOBAL, "CE_AIDistrictScoresCommit");
     PushLuaMethod(L, l_disable, "CE_AIDistrictScoresDisable", hks::LUA_GLOBAL, "CE_AIDistrictScoresDisable");
     PushLuaMethod(L, l_status, "CE_AIDistrictScoresStatus", hks::LUA_GLOBAL, "CE_AIDistrictScoresStatus");
+    PushLuaMethod(L, l_district_receipt, "CE_AIDistrictScoresReceipt", hks::LUA_GLOBAL, "CE_AIDistrictScoresReceipt");
+    PushLuaMethod(L, l_nomination_receipt, "CE_AIBuildingNominationReceipt", hks::LUA_GLOBAL, "CE_AIBuildingNominationReceipt");
     PushLuaMethod(L, l_trace_count, "CE_AIDistrictScoresTraceCount", hks::LUA_GLOBAL, "CE_AIDistrictScoresTraceCount");
     PushLuaMethod(L, l_trace_read, "CE_AIDistrictScoresTraceRead", hks::LUA_GLOBAL, "CE_AIDistrictScoresTraceRead");
 }

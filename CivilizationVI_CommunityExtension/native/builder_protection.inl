@@ -128,6 +128,11 @@ bool install_builder_hook(const unsigned char* base) {
 constexpr uintptr_t BuildingNetValueRva = 0x52a050;
 constexpr uintptr_t WonderRowCallRva = 0x3e419a;
 constexpr uintptr_t WonderRowReturnRva = 0x3e419f;
+// Pinned XP2 hotfix ordinary city-building forecast caller. Unlike the
+// Wonder path it supplies sentinel coordinates. Observation never edits it.
+constexpr uintptr_t OrdinaryBuildingForecastCallRva = 0x3e3edd;
+constexpr uintptr_t OrdinaryBuildingForecastReturnRva = OrdinaryBuildingForecastCallRva + 5;
+bool ordinary_forecast_ready{};
 constexpr unsigned char BuildingNetPrefix[] = {
     0x4c, 0x89, 0x44, 0x24, 0x18, 0x89, 0x54, 0x24,
     0x10, 0x55, 0x53, 0x57, 0x41, 0x54, 0x41, 0x55,
@@ -144,7 +149,11 @@ int* __cdecl hook_building_net(int* out, unsigned building, const void* discount
     BuilderAllowance key{};
     long epoch{};
     bool protect{};
-    if (enabled.load() && _ReturnAddress() ==
+    const auto* caller = _ReturnAddress();
+    if (ordinary_forecast_ready &&
+        caller == Runtime::GetGameCoreGlobalAt<void*>(OrdinaryBuildingForecastReturnRva))
+        observe_nomination_forecast(city, building);
+    if (enabled.load() && caller ==
         Runtime::GetGameCoreGlobalAt<void*>(WonderRowReturnRva)) {
         std::shared_lock guard(policyMutex);
         if (enabled && policy.protectWonders && !wonder_faults && building <= INT_MAX &&
@@ -187,6 +196,10 @@ bool install_wonder_hook(const unsigned char* base) {
         static_cast<int32_t>(BuildingNetValueRva - WonderRowReturnRva) ||
         std::memcmp(base + BuildingNetValueRva, BuildingNetPrefix, sizeof BuildingNetPrefix))
         return false;
+    const auto* forecastCall = base + OrdinaryBuildingForecastCallRva;
+    ordinary_forecast_ready = *forecastCall == X64CallRel32 &&
+        read_field<int32_t>(forecastCall, 1) == static_cast<int32_t>(
+            BuildingNetValueRva - OrdinaryBuildingForecastReturnRva);
     using namespace Runtime;
     const HookSpec hooks[] = {
         DescribeHook("Wonder plot NetValue", GetGameCoreGlobalAt<BuildingNetFn>(BuildingNetValueRva),

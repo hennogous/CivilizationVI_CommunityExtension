@@ -227,7 +227,7 @@ try {
 } finally { Pop-Location }
 ```
 
-Expected results are 74 district-score checks and four hook-group checks.
+Expected results are 101 district-score checks and four hook-group checks.
 The instruction-call check exercises byte refusal, near-relay delivery and
 restoration with an executable synthetic caller.
 The three failure-path diagnostics are expected in the isolated host.
@@ -421,3 +421,30 @@ stock city activation phase owning its selector view. Broader thread
 ownership, callers and Workshop delivery need review before release.
 The isolated self-test checks exact byte restoration, nested scope and
 unchanged score and reservation values.
+
+### Readback for published guidance
+
+Read receipts before the next commit replaces the publication. Each read is
+scoped to the exact policy version, owner and city. A stale version returns
+`staged: 0`.
+
+- `CE_AIDistrictScoresReceipt(version, player, city, district, plot)` reads one
+  site from the existing bounded journal. It separates score attempts and
+  writes, cache observations, calls to the stock city selector and exact
+  wins. Cache eligibility is the row's native flag. A recorded win is the
+  return from the selector, before reservation, queue and construction.
+  Sparse callers can use this API without serializing whole journal pages.
+- `CE_AIBuildingNominationReceipt(version, player, city, building)` reports
+  forecast calls, ordinary comparison hits and score writes. The read-only
+  forecast observer shares the existing building NetValue detour and
+  qualifies its ordinary caller at 3e3edd (return 3e3ee2) on the pinned
+  XP2 hotfix image. If the caller fingerprint or shared detour is
+  unavailable, `forecastReady` is zero. A zero or negative comparison is
+  acknowledged and keeps its native value.
+- `CE_AIDistrictRepairStatus()` additionally reports how many native
+  CheckForDistrict calls reached a city with a staged repair. A call can
+  be observed with the normal slot occupied and no supplemental admission.
+
+The stock selector can consider a supplier exclusion even if the same city
+has no score edits in that publication. The exclusion still uses the same
+owned-row qualification and restores the eligibility byte after the call.

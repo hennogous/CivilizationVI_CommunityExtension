@@ -26,6 +26,28 @@ void finish_nominations(Policy& staged) {
     }) - first);
 }
 
+// All callers hold policyMutex. Identity remains scoped to a city and its
+// current owner. Readback fields are carried by the same staged record.
+BuildingNomination* find_nomination(const BuildingNomination& key) {
+    const auto end = policy.nominations.begin() + policy.nominationCount;
+    const auto at = std::lower_bound(policy.nominations.begin(), end, key,
+        [](const auto& a, const auto& b) { return nomination_key(a) < nomination_key(b); });
+    return at != end && nomination_key(*at) == nomination_key(key) ? &*at : nullptr;
+}
+
+void observe_nomination_forecast(void* city, unsigned building) {
+    if (!nominations_published.load(std::memory_order_relaxed) || !enabled.load() || building > INT_MAX)
+        return;
+    std::unique_lock guard(policyMutex);
+    if (!enabled || !readable(city, CityOwnerOffset + sizeof(int), false))
+        return;
+    const auto* bytes = static_cast<const unsigned char*>(city);
+    const BuildingNomination key{read_field<int>(bytes, CityOwnerOffset),
+        read_field<int>(bytes, CityIdOffset), static_cast<int>(building), 0};
+    if (auto* entry = find_nomination(key))
+        ++entry->forecasts;
+}
+
 int adjusted_nomination_score(int score, int deltaQ8) {
     if (score <= 0 || deltaQ8 <= 0 || deltaQ8 > MaxNominationBidQ8 || score > INT_MAX - deltaQ8)
         return score;
@@ -39,7 +61,7 @@ extern "C" int AIBuildingNominationScore(const void* cityBuild, int building, in
     const void* caller) {
     if (!nominations_published.load(std::memory_order_relaxed) || !enabled.load() ||
         caller != Runtime::GetGameCoreGlobalAt<const void*>(OrdinaryBuildingNominationReturnRva)
-        || building < 0 || score <= 0)
+        || building < 0)
         return score;
 
     std::unique_lock guard(policyMutex);
@@ -65,15 +87,17 @@ extern "C" int AIBuildingNominationScore(const void* cityBuild, int building, in
         return score;
 
     const BuildingNomination key{player, read_field<int>(city, CityIdOffset), building, 0};
-    const auto at = std::lower_bound(first, end, key, [](const auto& a, const auto& b) {
-        return nomination_key(a) < nomination_key(b);
-    });
-    if (at == end || nomination_key(*at) != nomination_key(key))
+    auto* entry = find_nomination(key);
+    if (!entry)
         return score;
 
-    const int next = adjusted_nomination_score(score, at->deltaQ8);
-    if (next != score && nomination_changed++ == 0)
-        first_nomination_change = {key.player, key.city, key.building, score, next};
+    ++entry->comparisons;
+    const int next = adjusted_nomination_score(score, entry->deltaQ8);
+    if (next != score) {
+        ++entry->writes;
+        if (nomination_changed++ == 0)
+            first_nomination_change = {key.player, key.city, key.building, score, next};
+    }
     return next;
 }
 
@@ -101,6 +125,33 @@ int l_nomination_bid(lua_State* L) {
             staging.nominations[staging.nominationCount++] = entry;
     }
     return integer_result(L, ok);
+}
+
+int l_nomination_receipt(lua_State* L) {
+    const int version = hks::checkinteger(L, 1);
+    const BuildingNomination key{hks::checkinteger(L, 2), hks::checkinteger(L, 3),
+        hks::checkinteger(L, 4), 0};
+    int staged = 0;
+    BuildingNomination receipt{};
+    {
+        std::shared_lock guard(policyMutex);
+        if (version == policy.version) {
+            if (const auto* entry = find_nomination(key)) {
+                receipt = *entry;
+                staged = 1;
+            }
+        }
+    }
+    char output[160];
+    const int length = snprintf(output, sizeof output,
+        "{\"staged\":%d,\"forecastReady\":%d,\"forecasts\":%d,\"comparisons\":%d,\"writes\":%d}",
+        staged, static_cast<int>(ordinary_forecast_ready && wonder_ready),
+        receipt.forecasts, receipt.comparisons, receipt.writes);
+    if (length > 0 && length < static_cast<int>(sizeof output))
+        push_json(L, output, static_cast<size_t>(length));
+    else
+        push_json(L, "{}", 2);
+    return 1;
 }
 
 int l_nomination_status(lua_State* L) {
