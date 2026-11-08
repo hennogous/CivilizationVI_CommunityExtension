@@ -35,6 +35,7 @@ using hks::lua_State;
 using namespace GameCoreLayout;
 
 constexpr int MaxEntries = 4096;
+constexpr int MaxRepairCandidates = 256;
 constexpr int MaxPlayers = 64;
 constexpr int MaxMapDimension = 256;
 constexpr int MaxSamples = 64;
@@ -67,6 +68,9 @@ struct BuilderAllowance {
 struct BuildingNomination {
     int player, city, building, deltaQ8;
 };
+struct RepairCandidate {
+    int player, city, district, plot;
+};
 struct Policy {
     int version{}, width{}, height{}, districts{}, count{};
     bool hasLateEntries{};
@@ -78,13 +82,15 @@ struct Policy {
     std::array<BuilderAllowance, MaxEntries> builders{};
     int nominationCount{};
     std::array<BuildingNomination, MaxEntries> nominations{};
+    int repairCount{};
+    std::array<RepairCandidate, MaxRepairCandidates> repairs{};
 };
 
 void clear_policy(Policy& value) {
     // Old entries remain unreachable once count is zero. Avoid materializing
     // the entire fixed table as a temporary on the gameplay Lua stack.
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
-    value.nominationCount = 0;
+    value.nominationCount = value.repairCount = 0;
     value.hasLateEntries = false;
     value.protectWonders = false;
     value.protectHarvests = false;
@@ -793,6 +799,7 @@ int l_late_entry(lua_State* L) {
 }
 
 #include "native/building_nomination.inl"
+#include "native/district_repair_admission.inl"
 
 /* Only a ready, fault-free consumer may publish. Faults stay sticky until a
  * context reset. Clearing trace/samples here starts a new evidence window, so
@@ -816,8 +823,12 @@ int l_commit(lua_State* L) {
                 return !builder_order(a, b) && !builder_order(b, a);
             }) - first);
             finish_nominations(staging);
+            finish_repairs(staging);
             policy = staging;
             nominations_published.store(policy.nominationCount > 0, std::memory_order_relaxed);
+            repairs_published.store(policy.repairCount > 0, std::memory_order_relaxed);
+            repair_admitted = repair_duplicates = repair_rejected = 0;
+            first_repair = {};
             nomination_changed = 0;
             first_nomination_change = {};
             builder_changed = builder_bids = 0;
@@ -1077,6 +1088,9 @@ void reset_policy(void) {
     harvest_rejected = harvest_faults = 0;
     nominations_published.store(false, std::memory_order_relaxed);
     nomination_changed = nomination_faults = 0;
+    repairs_published.store(false, std::memory_order_relaxed);
+    repair_admitted = repair_duplicates = repair_rejected = repair_faults = 0;
+    first_repair = {};
     first_nomination_change = {};
     first_harvest_rejection = {};
     first_builder_change = {};
@@ -1113,6 +1127,7 @@ bool Create() {
     wonder_ready = builder_ready && install_wonder_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     harvest_ready = builder_ready && install_harvest_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     nomination_ready = hooks_ready && install_nomination_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
+    repair_ready = hooks_ready && install_repair_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     return hooks_ready;
 }
 
@@ -1132,6 +1147,8 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
     PushLuaMethod(L, l_nomination_bid, "CE_AIBuildingNominationBid", hks::LUA_GLOBAL, "CE_AIBuildingNominationBid");
     PushLuaMethod(L, l_nomination_status, "CE_AIBuildingNominationStatus", hks::LUA_GLOBAL, "CE_AIBuildingNominationStatus");
+    PushLuaMethod(L, l_repair_stage, "CE_AIDistrictRepairStage", hks::LUA_GLOBAL, "CE_AIDistrictRepairStage");
+    PushLuaMethod(L, l_repair_status, "CE_AIDistrictRepairStatus", hks::LUA_GLOBAL, "CE_AIDistrictRepairStatus");
     PushLuaMethod(L, l_commit, "CE_AIDistrictScoresCommit", hks::LUA_GLOBAL, "CE_AIDistrictScoresCommit");
     PushLuaMethod(L, l_disable, "CE_AIDistrictScoresDisable", hks::LUA_GLOBAL, "CE_AIDistrictScoresDisable");
     PushLuaMethod(L, l_status, "CE_AIDistrictScoresStatus", hks::LUA_GLOBAL, "CE_AIDistrictScoresStatus");

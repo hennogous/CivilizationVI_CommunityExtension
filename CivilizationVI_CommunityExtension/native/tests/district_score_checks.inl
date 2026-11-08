@@ -378,6 +378,48 @@ int run_self_test() {
     CHECK(adjusted_nomination_score(0, 100) == 0 && adjusted_nomination_score(-1, 100) == -1);
     CHECK(adjusted_nomination_score(INT_MAX - 1, 100) == INT_MAX - 1 &&
         adjusted_nomination_score(100, MaxNominationBidQ8 + 1) == 100);
+    repair_ready = true;
+    staging_valid = true;
+    staging.width = 74;
+    staging.height = 46;
+    staging.districts = 60;
+    staging.allowed[2] = true;
+    staging.repairCount = 0;
+    int repairArgs[]{2, 196610, 31, 2311};
+    l_repair_stage(asLua(repairArgs));
+    CHECK(test_integer == 1 && staging.repairCount == 1);
+    repairArgs[3] = 2312;
+    l_repair_stage(asLua(repairArgs));
+    CHECK(test_integer == 0 && staging.repairCount == 1);
+    repairArgs[1] = 65536;
+    l_repair_stage(asLua(repairArgs));
+    CHECK(test_integer == 1 && staging.repairCount == 2);
+    finish_repairs(staging);
+    CHECK(staging.repairs[0].city == 65536 && staging.repairs[1].city == 196610);
+    repairArgs[1] = 7;
+    repairArgs[3] = 74 * 46;
+    l_repair_stage(asLua(repairArgs));
+    CHECK(test_integer == 0 && staging.repairCount == 2);
+
+    unsigned char repairManager[ActiveTreeListOffset + sizeof(void*)]{};
+    unsigned char repairNode[TreeListNextOffset + sizeof(void*)]{};
+    constexpr size_t analysisOffset = TreeAnalysisOffset + AutoVariableDataOffset;
+    unsigned char repairTree[analysisOffset + AnalysisSize]{};
+    CHECK(check_active_repairs(repairManager, city, plot, 31) == RepairResult::Admitted);
+    put_field<const void*>(repairManager, ActiveTreeListOffset, repairNode);
+    put_field<const void*>(repairNode, 0, repairTree);
+    put_field<const void*>(repairTree, analysisOffset + AnalysisCityOffset, city);
+    put_field<const void*>(repairTree, analysisOffset + AnalysisPlotOffset, plot);
+    put_field<int>(repairTree, analysisOffset + AnalysisDistrictOffset, 31);
+    CHECK(check_active_repairs(repairManager, city, plot, 31) == RepairResult::Duplicate);
+    CHECK(check_active_repairs(repairManager, city, plot, 32) == RepairResult::Admitted);
+    put_field<const char*>(repairTree, TreeDisplayStringOffset, RepairTreeLabel);
+    CHECK(check_active_repairs(repairManager, city, plot, 32) == RepairResult::Duplicate);
+    CHECK(check_active_repairs(repairManager, object, plot, 31) == RepairResult::Admitted);
+    put_field<const void*>(repairNode, TreeListNextOffset, repairNode);
+    CHECK(check_active_repairs(repairManager, object, plot, 31) == RepairResult::Fault);
+    clear_policy(staging);
+    CHECK(staging.repairCount == 0);
 #undef CHECK
     return n;
 }

@@ -287,6 +287,7 @@
     </MASM>
     <None Include="native\builder_protection.inl" />
     <None Include="native\building_nomination.inl" />
+    <None Include="native\district_repair_admission.inl" />
     <None Include="native\README.md" />
   </ItemGroup>
 </Project>

@@ -360,3 +360,38 @@ This optional hook uses the same image qualification and shared Runtime
 as Builder protection. An unexpected entry, caller or output leaves
 ordinary evaluation intact. The publisher and worker share only the staged
 immutable site keys. No Lua or world mutation runs from the worker.
+
+
+## Optional supplemental district repair
+
+`CE_AIDistrictRepairStage(player, city, district, plot)` stages one exact
+existing footprint per original AI city inside the district policy
+transaction. A publication accepts up to 256 candidates. CSC decides
+which repairs are worth making available. The packet carries no score,
+priority, or completion command.
+
+The typed `CheckForDistrict` hook at `3e0ee0` runs the stock nomination
+first. This version admits a repair beside a newly created stock tree.
+It uses the city's `GetDistrictAt` (`11e520`), the existing complete and
+pillaged flags, and the `CanZone` call (`0f9d50`) used by `BuildDistrict`.
+The exact candidate must have a positive native plot value. Existing
+work is checked in the player's active tree list, which the native
+manager rebuilds after reading a save. A matching trigger or an active
+supplemental tree for the same city blocks another admission.
+
+The stock tree factory (`563840`), controller registration (`53feb0`)
+and analysis copy (`0d6160`) own the engine-side objects. The temporary
+analysis and display string follow the native stack lifetimes. The
+copied trigger must match the original candidate with zero base and
+bonus before the manager can run it. The ordinary slot stays with the
+stock plan. GameCore decodes the plot value, refreshes and arbitrates
+the request, and handles completion and retirement.
+
+`CE_AIDistrictRepairStatus()` exposes readiness, staged capacity,
+admitted, duplicate, rejected and fault counts, and the first admitted
+tuple `[player,city,plot,tree,controller,plotQ8]` per publication.
+Unrecognised native entry bytes disable this optional capability.
+Invalid or stale candidates leave stock planning alone. Structural
+faults stop new supplemental admissions until context reset. A reset
+retires the CE packet and keeps engine-owned requests in the save under
+the native manager. Live save/reload behaviour requires a separate test.
