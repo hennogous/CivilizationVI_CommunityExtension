@@ -36,6 +36,7 @@ using namespace GameCoreLayout;
 
 constexpr int MaxEntries = 4096;
 constexpr int MaxRepairCandidates = 256;
+constexpr int MaxSupplierExclusions = 256;
 constexpr int MaxPlayers = 64;
 constexpr int MaxMapDimension = 256;
 constexpr int MaxSamples = 64;
@@ -71,6 +72,9 @@ struct BuildingNomination {
 struct RepairCandidate {
     int player, city, district, plot;
 };
+struct SupplierExclusion {
+    int player, city, plot;
+};
 struct Policy {
     int version{}, width{}, height{}, districts{}, count{};
     bool hasLateEntries{};
@@ -84,13 +88,15 @@ struct Policy {
     std::array<BuildingNomination, MaxEntries> nominations{};
     int repairCount{};
     std::array<RepairCandidate, MaxRepairCandidates> repairs{};
+    int exclusionCount{};
+    std::array<SupplierExclusion, MaxSupplierExclusions> exclusions{};
 };
 
 void clear_policy(Policy& value) {
     // Old entries remain unreachable once count is zero. Avoid materializing
     // the entire fixed table as a temporary on the gameplay Lua stack.
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
-    value.nominationCount = value.repairCount = 0;
+    value.nominationCount = value.repairCount = value.exclusionCount = 0;
     value.hasLateEntries = false;
     value.protectWonders = false;
     value.protectHarvests = false;
@@ -103,7 +109,7 @@ void clear_policy(Policy& value) {
 std::shared_mutex policyMutex;
 Policy staging, policy;
 std::atomic<bool> enabled{};
-std::atomic<long> calls{}, active{};
+std::atomic<long> calls{}, active{}, excludedSupplierRows{};
 long generation{}, matched{}, changed{}, faults{};
 bool staging_valid{}, hooks_ready{};
 int sample_count{};
@@ -496,13 +502,72 @@ void __cdecl hook_cache(void* object) {
     // intrinsic here, before forwarding through another C++ frame.
     calculate_district_values(object, _ReturnAddress());
 }
+// Only the ordinary joint selector is covered. Its stock body reads a bounded
+// row vector, checks reservations and selects a winner. It does not rebuild
+// rows or dispatch another city analysis. Restore the exact bytes before CE
+// observes the winner or native district preparation consumes the cache.
+class SupplierRowMask {
+public:
+    SupplierRowMask(void* object, const Observation& observation) {
+        if (!observation.accepted)
+            return;
+        std::shared_lock guard(policyMutex);
+        if (!enabled || generation != observation.epoch || !policy.exclusionCount)
+            return;
+        const auto first = policy.exclusions.begin();
+        const auto last = first + policy.exclusionCount;
+        const auto sameCity = [&](const SupplierExclusion& site) {
+            return site.player == observation.key.player && site.city == observation.key.city;
+        };
+        if (std::none_of(first, last, sameCity))
+            return;
+        const auto matrix = read_matrix(object, observation.key);
+        if (!matrix.rows || !readable(matrix.rows, matrix.rowCount * PlotAnalysisRowSize, true))
+            return;
+        for (unsigned index = 1; index < matrix.rowCount; ++index) {
+            auto* row = matrix.rows + index * PlotAnalysisRowSize;
+            const int x = read_field<int>(row, RowXOffset);
+            const int y = read_field<int>(row, RowYOffset);
+            auto* eligible = row + RowDistrictEligibleOffset;
+            if (!*eligible || !row[RowOwnedOffset] || x < 0 || y < 0 || x >= policy.width || y >= policy.height ||
+                read_field<int16_t>(row, RowOwnerOffset) != observation.key.player ||
+                read_field<int>(row, RowCityIdOffset) != observation.key.city)
+                continue;
+            const int plot = y * policy.width + x;
+            if (std::any_of(first, last, [&](const SupplierExclusion& site) {
+                return sameCity(site) && site.plot == plot;
+            }))
+                saved[count++] = {eligible, *eligible};
+        }
+        for (unsigned index = 0; index < count; ++index)
+            *saved[index].flag = 0;
+        excludedSupplierRows.fetch_add(count, std::memory_order_relaxed);
+    }
+
+    ~SupplierRowMask() {
+        for (unsigned index = 0; index < count; ++index)
+            *saved[index].flag = saved[index].original;
+    }
+    SupplierRowMask(const SupplierRowMask&) = delete;
+    SupplierRowMask& operator=(const SupplierRowMask&) = delete;
+
+private:
+    struct Saved { unsigned char* flag; unsigned char original; };
+    std::array<Saved, MaxCityPlotRows> saved{};
+    unsigned count{};
+};
+
 /* A -1 return is a legitimate no-winner result; coordinates are undefined then.
  * For a winner, read exactly two int32 coordinates and keep the district return
  * unchanged. Observing a winner does not establish a request or construction. */
 int __cdecl hook_best(void* object, int* coordinates) {
     ActiveCall activity;
     Observation o = observe_enter(object);
-    int result = original_best(object, coordinates);
+    int result;
+    {
+        const SupplierRowMask mask(object, o);
+        result = original_best(object, coordinates);
+    }
     if (o.accepted) {
         std::unique_lock guard(policyMutex);
         if (enabled && generation == o.epoch) {
@@ -804,6 +869,41 @@ int l_late_entry(lua_State* L) {
 /* Only a ready, fault-free consumer may publish. Faults stay sticky until a
  * context reset. Clearing trace/samples here starts a new evidence window, so
  * callers must archive the retired window before committing a replacement. */
+int l_supplier_exclusion(lua_State* L) {
+    const SupplierExclusion site{hks::checkinteger(L, 1), hks::checkinteger(L, 2), hks::checkinteger(L, 3)};
+    bool ok;
+    {
+        std::unique_lock guard(policyMutex);
+        const auto end = staging.exclusions.begin() + staging.exclusionCount;
+        ok = staging_valid && hooks_ready && staging.exclusionCount < MaxSupplierExclusions &&
+            site.player >= 0 && site.player < MaxPlayers && staging.allowed[site.player] &&
+            site.city >= 0 && site.plot >= 0 && site.plot < staging.width * staging.height &&
+            std::none_of(staging.exclusions.begin(), end, [&](const auto& old) {
+                return site.player == old.player && site.city == old.city && site.plot == old.plot;
+            });
+        if (ok)
+            staging.exclusions[staging.exclusionCount++] = site;
+    }
+    return integer_result(L, ok);
+}
+
+int l_supplier_exclusion_status(lua_State* L) {
+    char output[160];
+    int length;
+    {
+        std::shared_lock guard(policyMutex);
+        length = snprintf(output, sizeof output,
+            "{\"ready\":%d,\"entries\":%d,\"capacity\":%d,\"masked\":%ld}",
+            static_cast<int>(hooks_ready && !faults), policy.exclusionCount, MaxSupplierExclusions,
+            excludedSupplierRows.load(std::memory_order_relaxed));
+    }
+    if (length > 0 && length < static_cast<int>(sizeof output))
+        push_json(L, output, static_cast<size_t>(length));
+    else
+        push_json(L, "{}", 2);
+    return 1;
+}
+
 int l_commit(lua_State* L) {
     bool ok;
     {
@@ -1149,6 +1249,8 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_nomination_status, "CE_AIBuildingNominationStatus", hks::LUA_GLOBAL, "CE_AIBuildingNominationStatus");
     PushLuaMethod(L, l_repair_stage, "CE_AIDistrictRepairStage", hks::LUA_GLOBAL, "CE_AIDistrictRepairStage");
     PushLuaMethod(L, l_repair_status, "CE_AIDistrictRepairStatus", hks::LUA_GLOBAL, "CE_AIDistrictRepairStatus");
+    PushLuaMethod(L, l_supplier_exclusion, "CE_AISupplierExclusionStage", hks::LUA_GLOBAL, "CE_AISupplierExclusionStage");
+    PushLuaMethod(L, l_supplier_exclusion_status, "CE_AISupplierExclusionStatus", hks::LUA_GLOBAL, "CE_AISupplierExclusionStatus");
     PushLuaMethod(L, l_commit, "CE_AIDistrictScoresCommit", hks::LUA_GLOBAL, "CE_AIDistrictScoresCommit");
     PushLuaMethod(L, l_disable, "CE_AIDistrictScoresDisable", hks::LUA_GLOBAL, "CE_AIDistrictScoresDisable");
     PushLuaMethod(L, l_status, "CE_AIDistrictScoresStatus", hks::LUA_GLOBAL, "CE_AIDistrictScoresStatus");

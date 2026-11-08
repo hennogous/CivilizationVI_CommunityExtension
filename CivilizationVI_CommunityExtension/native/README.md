@@ -395,3 +395,29 @@ Invalid or stale candidates leave stock planning alone. Structural
 faults stop new supplemental admissions until context reset. A reset
 retires the CE packet and keeps engine-owned requests in the save under
 the native manager. Live save/reload behaviour requires a separate test.
+
+### Supplier exclusion in the ordinary district selector
+
+The optional CSC integration stages one owned plot with
+`CE_AISupplierExclusionStage(player, city, plot)` in the existing atomic
+district batch. `CE_AISupplierExclusionStatus()` reports availability,
+capacity and the process lifetime count of rows masked during selection.
+The list is limited to 256 distinct plot identities. CSC derives these
+identities from live supplier facts once per turn.
+
+The existing `GetBestDistrict` hook checks the published generation and
+the current CityBuild identity, bounds, row ownership and row writability.
+It borrows eligible bytes for one original call and restores their exact
+values immediately afterward. This path uses the existing Win64
+`GetBestDistrict` ABI, row stride and eligibility field. It adds no
+address, new entry detour, or modified score or reservation cell. The
+pinned selector's body traverses these rows without reallocating them and
+uses ordinary native reservation checks and tie-breaking.
+
+The mask covers the ordinary joint placement decision. It does not
+cancel retained contracts, change the type-specific location helper or
+substitute for repair eligibility. The temporary row mask relies on the
+stock city activation phase owning its selector view. Broader thread
+ownership, callers and Workshop delivery need review before release.
+The isolated self-test checks exact byte restoration, nested scope and
+unchanged score and reservation values.

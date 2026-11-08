@@ -247,6 +247,24 @@ int run_self_test() {
     l_late_entry(asLua(entry));
     l_commit(nullptr);
     CHECK(test_integer == 1 && policy.hasLateEntries && enabled);
+    policy.exclusions[0] = {1, 7, 30};
+    policy.exclusionCount = 1;
+    lateRow[RowDistrictEligibleOffset] = 9;
+    const auto maskObservation = observe_enter(object);
+    CHECK(maskObservation.accepted);
+    {
+        const SupplierRowMask outer(object, maskObservation);
+        CHECK(lateRow[RowDistrictEligibleOffset] == 0 && rows[RowDistrictEligibleOffset] == 1);
+        {
+            const SupplierRowMask nested(object, maskObservation);
+            CHECK(lateRow[RowDistrictEligibleOffset] == 0);
+        }
+        CHECK(lateRow[RowDistrictEligibleOffset] == 0);
+    }
+    CHECK(lateRow[RowDistrictEligibleOffset] == 9 && *score == 0 && reservation == UnreservedPlot);
+    lateRow[RowDistrictEligibleOffset] = 1;
+    policy.exclusionCount = 0;
+
     test_base = lateBefore;
     AIDistrictScoreNet(&out, 8, nullptr, 0, 0, plot, city, rows, netCaller);
     CHECK(out == lateBefore && changed == 0);
