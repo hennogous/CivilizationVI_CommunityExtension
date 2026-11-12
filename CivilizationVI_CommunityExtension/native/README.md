@@ -227,12 +227,12 @@ try {
 } finally { Pop-Location }
 ```
 
-Expected results are 101 district-score checks and four hook-group checks.
+Expected results are 114 district-score checks and four hook-group checks.
 The instruction-call check exercises byte refusal, near-relay delivery and
 restoration with an executable synthetic caller.
 The three failure-path diagnostics are expected in the isolated host.
 
-## Earlier C port qualification checkpoint — 5 November 2026
+## Earlier C port qualification checkpoint â€” 5 November 2026
 
 Tested implementation: commit `87f48fc7878d00851279bccbc9dd30cfe147470b`, based on
 upstream develop `2986a746b396eb93aad14f9afffb043a09c2c489`. The results in
@@ -247,7 +247,7 @@ this section apply to that C implementation.
   All 157 export contracts match upstream; independent static checks cover actual
   imports, compiled guards/bindings/lifecycle, the MASM shim and its unwind data.
 - A fresh isolated CSC/Lua test reached turn 100 on Online speed, checked an
-  observation-only context at turns 1–2, and reloaded the exact save at turn 6,
+  observation-only context at turns 1â€“2, and reloaded the exact save at turn 6,
   using the shared controller. All 101 Lua/Python plan comparisons match across
   100 publications. All 27,775 journal records pass the audit: 62 increases,
   13,746 deductions, all four trace families, zero reported native API faults,
@@ -448,3 +448,46 @@ scoped to the exact policy version, owner and city. A stale version returns
 The stock selector can consider a supplier exclusion even if the same city
 has no score edits in that publication. The exclusion still uses the same
 owned-row qualification and restores the eligibility byte after the call.
+
+## Optional district purchase ownership acknowledgement
+
+`CE_AIDistrictPurchaseCompletionStage(player, city, district)` adds a generic
+numeric scope to Begin/Allow/Commit. A rejected row poisons staging; duplicate
+scopes coalesce at commit. Missing/unsupported bytes disable this optional
+capability while ordinary score guidance remains available. The caller owns
+original-human exclusion and its desired district family.
+
+At ContractManagerDecorator::UpdateContract (55a030), the typed Win64 wrapper
+preserves all six arguments and invokes the original once. Only the expected
+PurchasePlotContract vtable9fa930 in accepted state3 is considered. Current
+executing-tree analysis supplies city/district/plot; a bounded parent walk
+checks the root owner-control. Pure map52d00/attributes5f090 (pool4c210) verify
+canonical target coordinates, signed owner and purchase-city ID. These must
+match that city. No engine pointer is stored between callbacks or across loads.
+A lazily unresolved native handle is left to the original getter; a subsequent
+update can acknowledge it after native resolution.
+
+The acknowledgement uses archive-aware assignment64a6d0(contract+a0,&seven),
+following native BuildingCreated3f81d0 / DistrictCreated3f8210. This is a generic
+tracked setter, not a CompleteContract API; direct contract+b0 writes would
+bypass archive dirtiness. The normal decorator still handles progression and
+cleanup. The short setter is called under the publication lock only because
+its audited body has no AI/HKS callbacks; original functions and pure lookups
+run outside that lock. A generation mismatch or inconsistent identity prevents
+the write. A failed state transition disables further acknowledgements until
+context reset.
+
+`CE_AIDistrictPurchaseCompletionStatus()` reports readiness, scope count,
+considerations, acknowledgements and faults. The versioned
+`CE_AIDistrictPurchaseCompletionReceipt(version, player, city, district)` reads
+that exact scope's considered/owned/acknowledged/rejected counts plus last
+contract/plot/before/after, independent of clipped samples. Ownership fulfilment
+is not payment evidence: cultural growth can also satisfy the prerequisite.
+No funds, scores, purchases, reservations or build commands are supplied here.
+
+Binary/ABI evidence and controlled diagnostic outcome: AI-N118 and
+[CSC acquisition evidence](https://github.com/hennogous/Henno-Mods/blob/main/project/docs/research/mods/csc-ai-nuremberg-acquisition-20261112.md).
+The 13 added native checks exercise disabled/out-of-scope, unowned/other-city,
+invalid identities, tracked completion/deduplication, exact/stale receipts,
+staging rejection and context retirement. They do not establish live ABI,
+reload reconstruction or integrated construction; those remain live gates.

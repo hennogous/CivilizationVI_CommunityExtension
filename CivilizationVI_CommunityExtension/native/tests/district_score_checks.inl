@@ -74,6 +74,19 @@ void put_field(unsigned char* buffer, size_t offset, Value value) {
     std::memcpy(buffer + offset, &value, sizeof value);
 }
 
+unsigned char* ownershipTestPlot{};
+unsigned char* ownershipTestAttributes{};
+int ownershipTestAssignments{};
+void* ownership_test_map() { return ownershipTestPlot; }
+const unsigned char* ownership_test_plot(const void*, const OwnershipXY* xy) {
+    return xy->x == 2 && xy->y == 3 ? ownershipTestPlot : nullptr;
+}
+const unsigned char* ownership_test_attributes(const void*) { return ownershipTestAttributes; }
+void ownership_test_assignment(void* variable, const int* value) {
+    ++ownershipTestAssignments;
+    // Fake the tracked native setter's scalar result, not a production write.
+    put_field<int>(static_cast<unsigned char*>(variable), 0x10, *value);
+}
 int run_self_test() {
     int n = 0, v, out = 0, xy[2], params[3];
 #define CHECK(c) do { n++; if(!(c)) { printf("district native test %d failed: %s\n",n,#c);return -n; } } while(0)
@@ -476,6 +489,62 @@ int run_self_test() {
     CHECK(check_active_repairs(repairManager, object, plot, 31) == RepairResult::Fault);
     clear_policy(staging);
     CHECK(staging.repairCount == 0);
+    // Exercise the new C++ implementation, not the earlier JS prototype.
+    // Native calls are typed stubs; real ABI and reload are live-test gates.
+    alignas(8) unsigned char ownTree[OwnershipTreePlot + sizeof(void*)]{};
+    alignas(8) unsigned char ownContract[OwnershipContractXY + sizeof(OwnershipXY)]{};
+    alignas(8) unsigned char ownAttributes[OwnershipAttributePlayer + 1]{};
+    void* ownHandle = ownContract;
+    ownershipTestPlot = plot; ownershipTestAttributes = ownAttributes;
+    const OwnershipNativeCalls ownNative{ownership_test_map, ownership_test_plot, ownership_test_attributes, ownership_test_assignment};
+    put_field<int>(city, CityOwnerOffset, 1); put_field<int>(city, CityIdOffset, 7);
+    put_field<const void*>(ownTree, OwnershipTreeCity, city);
+    put_field<const void*>(ownTree, OwnershipTreePlot, plot);
+    put_field<int>(ownTree, OwnershipTreeDistrict, 8);
+    put_field<int>(ownTree, TreeIdOffset, 55); put_field<int>(ownTree, TreeControllerIdOffset, 66);
+    put_field<const void*>(ownContract, 0, Runtime::GetGameCoreGlobalAt<void*>(OwnershipPurchaseVtableRva));
+    put_field<int>(ownContract, OwnershipContractState, 3);
+    put_field<int>(ownContract, OwnershipContractId, 77); put_field<int>(ownContract, OwnershipContractPlayer, 1);
+    put_field<int>(ownContract, OwnershipContractControl, 66);
+    put_field<OwnershipXY>(ownContract, OwnershipContractXY, {2, 3});
+    put_field<int16_t>(plot, PlotXOffset, 2); put_field<int16_t>(plot, PlotYOffset, 3);
+    put_field<int8_t>(ownAttributes, OwnershipAttributePlayer, 1); put_field<int>(ownAttributes, OwnershipAttributeCity, 7);
+    clear_policy(policy); policy.width = 74; policy.height = 46; policy.version = 9; policy.districts = 60;
+    policy.allowed[1] = true; policy.ownershipCount = 1; policy.ownership[0] = {1, 7, 8};
+    enabled = false; ownership_published = true; ownership_faults = 0; ownershipTestAssignments = 0;
+    acknowledge_owned_purchase(&ownHandle, ownTree, ownNative);
+    CHECK(ownershipTestAssignments == 0);
+    enabled = true; policy.ownership[0].district = 9;
+    acknowledge_owned_purchase(&ownHandle, ownTree, ownNative);
+    CHECK(ownershipTestAssignments == 0);
+    policy.ownership[0].district = 8; put_field<int8_t>(ownAttributes, OwnershipAttributePlayer, -1);
+    acknowledge_owned_purchase(&ownHandle, ownTree, ownNative);
+    CHECK(ownershipTestAssignments == 0 && policy.ownership[0].rejected == 1);
+    put_field<int8_t>(ownAttributes, OwnershipAttributePlayer, 1); put_field<int>(ownAttributes, OwnershipAttributeCity, 99);
+    acknowledge_owned_purchase(&ownHandle, ownTree, ownNative);
+    CHECK(ownershipTestAssignments == 0 && policy.ownership[0].rejected == 2);
+    put_field<int>(ownAttributes, OwnershipAttributeCity, 7); put_field<int>(ownTree, TreeControllerIdOffset, -1);
+    put_field<int>(ownContract, OwnershipContractControl, -1);
+    acknowledge_owned_purchase(&ownHandle, ownTree, ownNative);
+    CHECK(ownershipTestAssignments == 0);
+    put_field<int>(ownTree, TreeControllerIdOffset, 66); put_field<int>(ownContract, OwnershipContractControl, 66);
+    acknowledge_owned_purchase(&ownHandle, ownTree, ownNative);
+    CHECK(ownershipTestAssignments == 1 && read_field<int>(ownContract, OwnershipContractState) == 7);
+    CHECK(policy.ownership[0].acknowledged == 1 && policy.ownership[0].lastContract == 77 && policy.ownership[0].lastPlot == 224);
+    acknowledge_owned_purchase(&ownHandle, ownTree, ownNative);
+    CHECK(ownershipTestAssignments == 1); // Already fulfilled: no repeated assignment.
+    int ownReceipt[]{9, 1, 7, 8}; l_ownership_receipt(asLua(ownReceipt));
+    CHECK(strstr(test_json, "\"acknowledged\":1") && strstr(test_json, "\"after\":7"));
+    ownReceipt[0] = 10; l_ownership_receipt(asLua(ownReceipt));
+    CHECK(strstr(test_json, "\"staged\":0"));
+    clear_policy(staging); staging_valid = true; staging.width = 74; staging.height = 46;
+    staging.districts = 60; staging.allowed[1] = true; ownership_ready = true;
+    int ownArgs[]{1, 7, 8}; l_ownership_stage(asLua(ownArgs));
+    CHECK(test_integer == 1 && staging.ownershipCount == 1);
+    ownArgs[0] = 2; l_ownership_stage(asLua(ownArgs));
+    CHECK(test_integer == 0 && !staging_valid); // Rejected scope poisons the batch.
+    reset_policy();
+    CHECK(policy.ownershipCount == 0 && !ownership_published);
 #undef CHECK
     return n;
 }

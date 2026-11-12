@@ -76,6 +76,13 @@ struct RepairCandidate {
 struct SupplierExclusion {
     int player, city, plot;
 };
+// Ownership scopes authorize acknowledgement, never a purchase or a score.
+// Counters stay with each sorted key, so a requested receipt is not sample-limited.
+struct OwnershipScope {
+    int player{}, city{}, district{};
+    long considered{}, owned{}, acknowledged{}, rejected{};
+    int lastContract{-1}, lastPlot{-1}, lastBefore{-1}, lastAfter{-1};
+};
 struct Policy {
     int version{}, width{}, height{}, districts{}, count{};
     bool hasLateEntries{};
@@ -89,6 +96,8 @@ struct Policy {
     std::array<BuildingNomination, MaxEntries> nominations{};
     int repairCount{};
     std::array<RepairCandidate, MaxRepairCandidates> repairs{};
+    int ownershipCount{};
+    std::array<OwnershipScope, MaxEntries> ownership{};
     int exclusionCount{};
     std::array<SupplierExclusion, MaxSupplierExclusions> exclusions{};
 };
@@ -97,7 +106,7 @@ void clear_policy(Policy& value) {
     // Old entries remain unreachable once count is zero. Avoid materializing
     // the entire fixed table as a temporary on the gameplay Lua stack.
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
-    value.nominationCount = value.repairCount = value.exclusionCount = 0;
+    value.nominationCount = value.repairCount = value.exclusionCount = value.ownershipCount = 0;
     value.hasLateEntries = false;
     value.protectWonders = false;
     value.protectHarvests = false;
@@ -881,6 +890,7 @@ int l_late_entry(lua_State* L) {
 
 #include "native/building_nomination.inl"
 #include "native/district_repair_admission.inl"
+#include "native/purchase_ownership_completion.inl"
 
 /* Only a ready, fault-free consumer may publish. Faults stay sticky until a
  * context reset. Clearing trace/samples here starts a new evidence window, so
@@ -940,7 +950,9 @@ int l_commit(lua_State* L) {
             }) - first);
             finish_nominations(staging);
             finish_repairs(staging);
+            finish_ownership_scopes(staging);
             policy = staging;
+            ownership_published.store(policy.ownershipCount > 0, std::memory_order_relaxed);
             nominations_published.store(policy.nominationCount > 0, std::memory_order_relaxed);
             repairs_published.store(policy.repairCount > 0, std::memory_order_relaxed);
             repair_considered = repair_admitted = repair_duplicates = repair_rejected = 0;
@@ -1249,6 +1261,8 @@ void reset_policy(void) {
     nominations_published.store(false, std::memory_order_relaxed);
     nomination_changed = nomination_faults = 0;
     repairs_published.store(false, std::memory_order_relaxed);
+    ownership_published.store(false, std::memory_order_relaxed);
+    ownership_faults = 0;
     repair_considered = repair_admitted = repair_duplicates = repair_rejected = repair_faults = 0;
     first_repair = {};
     first_nomination_change = {};
@@ -1288,6 +1302,7 @@ bool Create() {
     harvest_ready = builder_ready && install_harvest_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     nomination_ready = hooks_ready && install_nomination_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     repair_ready = hooks_ready && install_repair_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
+    ownership_ready = hooks_ready && install_ownership_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     return hooks_ready;
 }
 
@@ -1307,6 +1322,9 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
     PushLuaMethod(L, l_nomination_bid, "CE_AIBuildingNominationBid", hks::LUA_GLOBAL, "CE_AIBuildingNominationBid");
     PushLuaMethod(L, l_nomination_status, "CE_AIBuildingNominationStatus", hks::LUA_GLOBAL, "CE_AIBuildingNominationStatus");
+    PushLuaMethod(L, l_ownership_stage, "CE_AIDistrictPurchaseCompletionStage", hks::LUA_GLOBAL, "CE_AIDistrictPurchaseCompletionStage");
+    PushLuaMethod(L, l_ownership_status, "CE_AIDistrictPurchaseCompletionStatus", hks::LUA_GLOBAL, "CE_AIDistrictPurchaseCompletionStatus");
+    PushLuaMethod(L, l_ownership_receipt, "CE_AIDistrictPurchaseCompletionReceipt", hks::LUA_GLOBAL, "CE_AIDistrictPurchaseCompletionReceipt");
     PushLuaMethod(L, l_repair_stage, "CE_AIDistrictRepairStage", hks::LUA_GLOBAL, "CE_AIDistrictRepairStage");
     PushLuaMethod(L, l_repair_status, "CE_AIDistrictRepairStatus", hks::LUA_GLOBAL, "CE_AIDistrictRepairStatus");
     PushLuaMethod(L, l_supplier_exclusion, "CE_AISupplierExclusionStage", hks::LUA_GLOBAL, "CE_AISupplierExclusionStage");
