@@ -227,7 +227,7 @@ try {
 } finally { Pop-Location }
 ```
 
-Expected results are 114 district-score checks and four hook-group checks.
+Expected results are 166 district-score checks and four hook-group checks.
 The instruction-call check exercises byte refusal, near-relay delivery and
 restoration with an executable synthetic caller.
 The three failure-path diagnostics are expected in the isolated host.
@@ -491,3 +491,50 @@ The 13 added native checks exercise disabled/out-of-scope, unowned/other-city,
 invalid identities, tracked completion/deduplication, exact/stale receipts,
 staging rejection and context retirement. They do not establish live ABI,
 reload reconstruction or integrated construction; those remain live gates.
+
+### Typed district-site declines
+
+This optional ABI1 uses the existing joint district selector hook and its
+already qualified CityBuild matrix. It adds no native address or detour.
+
+- Begin/Allow establish version, dimensions and original-AI identity.
+- CE_AIDistrictDeclineStage(player, city, district, plot) stages one exact cell.
+- Commit sorts/deduplicates the bounded list (capacity4096) and atomically
+  replaces it with the rest of the complete policy. Failed staging poisons
+  that transaction; callers must disable or handle failure as for score bids.
+- CE_AIDistrictDeclineStatus reports capability/version/scope capacity and
+  considered, masked, restored, rejected and fault counts.
+- CE_AIDistrictDeclineReceipt(version, player, city, district, plot) reads one
+  exact key. Stale version is staged0. Ready alone does not mean enabled;
+  pair it with the normal policy status.
+
+Decline is choice admission, not an economic score or a production order.
+Only during original_best, eligible owned/frontier cells in the valid score
+range are temporarily set to DeclinedScore = InvalidScore - 1. The native
+predicate is reservationPriority < cell && currentBest <= cell; currentBest
+starts at InvalidScore, so equality with that floor is insufficient for a
+low-priority reserved row. Original cells at the floor also need the temporary
+mask; below-floor and explicitly protected extreme values remain untouched.
+Reservation handles and other district columns are unchanged. The RAII scope
+restores every original i32 before ordinary cache/Best readback, even when
+publication retires during the call. Nested masks cannot restore their parent.
+The selector does not relocate/free its matrix during this qualified call.
+
+Mask storage is bounded to this city's published keys. Allocation failure
+before any write retires the capability and selects normally; journal capacity
+is checked for the entire mask batch before any cell changes. No Lua is called
+from native jobs. Tests cover nested/retired scopes, owned/frontier/reserved
+rows, zero/negative/floor scores, native predicate boundaries, protected values,
+detached row pointers and two-cell exact/insufficient journal capacity.
+
+Receipt meanings are deliberately distinct: considered is consultation, not
+admission. Missing, ineligible or protected cells can be considered with no
+mask and no rejection. Rejected reports the pointer/write-layout guard.
+originalQ8 is meaningful only after masked>0. Restoration after retirement
+does not credit a replacement generation's counters. All counters reset at
+the next complete commit; archive observations before replacement.
+
+The mod owns the semantic reason for declining a site and must withdraw it
+when live facts improve. The API cannot verify supply potential or benefit.
+It does not cancel a retained tree, invalidate a permanent cache, choose a
+different district or alter later competition with ordinary production.

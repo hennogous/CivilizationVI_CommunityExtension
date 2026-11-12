@@ -27,6 +27,7 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <vector>
 
 namespace AI::DistrictScores {
 namespace {
@@ -76,6 +77,13 @@ struct RepairCandidate {
 struct SupplierExclusion {
     int player, city, plot;
 };
+// A decline controls admission to a fresh joint district comparison, not its
+// economic score or any retained plan. Counters belong to one published key.
+struct DistrictDecline {
+    int player{}, city{}, district{}, plot{};
+    long considered{}, masked{}, restored{}, rejected{};
+    int lastOriginal{};
+};
 // Ownership scopes authorize acknowledgement, never a purchase or a score.
 // Counters stay with each sorted key, so a requested receipt is not sample-limited.
 struct OwnershipScope {
@@ -98,6 +106,8 @@ struct Policy {
     std::array<RepairCandidate, MaxRepairCandidates> repairs{};
     int ownershipCount{};
     std::array<OwnershipScope, MaxEntries> ownership{};
+    int declineCount{};
+    std::array<DistrictDecline, MaxEntries> declines{};
     int exclusionCount{};
     std::array<SupplierExclusion, MaxSupplierExclusions> exclusions{};
 };
@@ -106,7 +116,7 @@ void clear_policy(Policy& value) {
     // Old entries remain unreachable once count is zero. Avoid materializing
     // the entire fixed table as a temporary on the gameplay Lua stack.
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
-    value.nominationCount = value.repairCount = value.exclusionCount = value.ownershipCount = 0;
+    value.nominationCount = value.repairCount = value.exclusionCount = value.ownershipCount = value.declineCount = 0;
     value.hasLateEntries = false;
     value.protectWonders = false;
     value.protectHarvests = false;
@@ -125,7 +135,7 @@ bool staging_valid{}, hooks_ready{};
 int sample_count{};
 std::array<Sample, MaxSamples> samples{};
 
-enum TraceKind { Net, Cache, Best, PresentValue, Late };
+enum TraceKind { Net, Cache, Best, PresentValue, Late, Decline };
 enum TraceReason { Applied = 0, ProtectedScore = 2, InvalidArithmetic, WriteBudget, LateInputMismatch, LateFinalMismatch };
 
 struct TraceRecord {
@@ -333,6 +343,19 @@ Observation observe_enter(void* object, bool includeExclusions = false) {
                     o.key = {player, cityId, 0, site->plot, 0};
                 }
             }
+            if (!o.accepted && includeExclusions) {
+                const int player = read_field<int>(city, CityOwnerOffset);
+                const int cityId = read_field<int>(city, CityIdOffset);
+                for (int i = 0; i < policy.declineCount; ++i) {
+                    const auto& scope = policy.declines[i];
+                    if (scope.player == player && scope.city == cityId) {
+                        o.accepted = true;
+                        o.epoch = generation;
+                        o.key = {player, cityId, scope.district, scope.plot, 0};
+                        break;
+                    }
+                }
+            }
         }
     }
     return o;
@@ -530,6 +553,8 @@ void __cdecl hook_cache(void* object) {
 // row vector, checks reservations and selects a winner. It does not rebuild
 // rows or dispatch another city analysis. Restore the exact bytes before CE
 // observes the winner or native district preparation consumes the cache.
+#include "native/district_candidate_decline.inl"
+
 class SupplierRowMask {
 public:
     SupplierRowMask(void* object, const Observation& observation) {
@@ -590,6 +615,7 @@ int __cdecl hook_best(void* object, int* coordinates) {
     int result;
     {
         const SupplierRowMask mask(object, o);
+        const DistrictCandidateMask candidateMask(object, o);
         result = original_best(object, coordinates);
     }
     if (o.accepted) {
@@ -930,6 +956,8 @@ int l_supplier_exclusion_status(lua_State* L) {
     return 1;
 }
 
+#include "native/district_candidate_decline_api.inl"
+
 int l_commit(lua_State* L) {
     bool ok;
     {
@@ -951,6 +979,7 @@ int l_commit(lua_State* L) {
             finish_nominations(staging);
             finish_repairs(staging);
             finish_ownership_scopes(staging);
+            finish_declines(staging);
             policy = staging;
             ownership_published.store(policy.ownershipCount > 0, std::memory_order_relaxed);
             nominations_published.store(policy.nominationCount > 0, std::memory_order_relaxed);
@@ -1127,7 +1156,7 @@ int l_trace_read(lua_State* L) {
         offset + count,
         stale?"true":"false"
     );
-    constexpr const char* kinds[] = {"net", "cache", "best", "pv", "late"};
+    constexpr const char* kinds[] = {"net", "cache", "best", "pv", "late", "decline"};
     for (int i = 0; i < count; i++) {
         TraceRecord r = page[i];
         n += snprintf(
@@ -1327,6 +1356,9 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_ownership_receipt, "CE_AIDistrictPurchaseCompletionReceipt", hks::LUA_GLOBAL, "CE_AIDistrictPurchaseCompletionReceipt");
     PushLuaMethod(L, l_repair_stage, "CE_AIDistrictRepairStage", hks::LUA_GLOBAL, "CE_AIDistrictRepairStage");
     PushLuaMethod(L, l_repair_status, "CE_AIDistrictRepairStatus", hks::LUA_GLOBAL, "CE_AIDistrictRepairStatus");
+    PushLuaMethod(L, l_decline_stage, "CE_AIDistrictDeclineStage", hks::LUA_GLOBAL, "CE_AIDistrictDeclineStage");
+    PushLuaMethod(L, l_decline_status, "CE_AIDistrictDeclineStatus", hks::LUA_GLOBAL, "CE_AIDistrictDeclineStatus");
+    PushLuaMethod(L, l_decline_receipt, "CE_AIDistrictDeclineReceipt", hks::LUA_GLOBAL, "CE_AIDistrictDeclineReceipt");
     PushLuaMethod(L, l_supplier_exclusion, "CE_AISupplierExclusionStage", hks::LUA_GLOBAL, "CE_AISupplierExclusionStage");
     PushLuaMethod(L, l_supplier_exclusion_status, "CE_AISupplierExclusionStatus", hks::LUA_GLOBAL, "CE_AISupplierExclusionStatus");
     PushLuaMethod(L, l_commit, "CE_AIDistrictScoresCommit", hks::LUA_GLOBAL, "CE_AIDistrictScoresCommit");

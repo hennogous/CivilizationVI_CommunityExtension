@@ -33,6 +33,26 @@ int __cdecl test_best(void* object, int* coordinates) {
     coordinates[1] = 3;
     return 8;
 }
+// Synthetic selector reads the actual borrowed cells while the RAII mask is
+// active. Live tests still have to prove the real native choice/request.
+int __cdecl test_decline_best(void* object, int* coordinates) {
+    auto* bytes = static_cast<unsigned char*>(object);
+    auto* data = read_field<int*>(bytes, DistrictMatrixDataOffset);
+    auto* row = read_field<unsigned char*>(bytes, CityBuildRowsOffset) + PlotAnalysisRowSize;
+    const auto* reservation = read_field<const int*>(row, RowReservationOffset);
+    // This fixture treats a non--1 reservation ID as manager-resolved. Ties
+    // take the admitted branch deterministically; real selection randomizes.
+    const int threshold = *reservation == UnreservedPlot ? InvalidScore : reservation[1];
+    int winner = -1, best = InvalidScore;
+    for (int district : {8, 9}) {
+        const int value = data[10 + district];
+        if (threshold < value && best <= value) {
+            best = value; winner = district;
+            coordinates[0] = 0; coordinates[1] = 3;
+        }
+    }
+    return winner;
+}
 int* __cdecl test_present(void* object, int* out, int district, void* plot) {
     (void)object;
     (void)district;
@@ -296,6 +316,81 @@ int run_self_test() {
     lateRow[RowDistrictEligibleOffset] = 1;
     policy.exclusionCount = 0;
 
+    // Typed declines leave other columns, reservations and row flags intact.
+    policy.declineCount = 1; policy.declines[0] = {1, 7, 8, 30};
+    const auto declineObservation = observe_enter(object, true);
+    reservation = 77; matrix[19] = 321;
+    for (int value : {413460, 0, -10, InvalidScore, InvalidScore - 1, INT_MAX}) {
+        *score = value;
+        {
+            const DistrictCandidateMask mask(object, declineObservation);
+            CHECK(*score == (value >= InvalidScore && value <= MaxScore ? DeclinedScore : value));
+            CHECK(matrix[19] == 321 && reservation == 77 && lateRow[RowDistrictEligibleOffset] == 1);
+            {
+                const DistrictCandidateMask nested(object, declineObservation);
+                CHECK(*score == (value >= InvalidScore && value <= MaxScore ? DeclinedScore : value));
+            }
+            CHECK(*score == (value >= InvalidScore && value <= MaxScore ? DeclinedScore : value));
+        }
+        CHECK(*score == value);
+    }
+    lateRow[RowOwnedOffset] = 0; lateRow[RowFrontierOffset] = 1; *score = 123;
+    {
+        const DistrictCandidateMask frontier(object, declineObservation);
+        CHECK(*score == DeclinedScore);
+    }
+    CHECK(*score == 123); lateRow[RowOwnedOffset] = 1; lateRow[RowFrontierOffset] = 0;
+    const long originalEpoch = generation;
+    {
+        const DistrictCandidateMask retiring(object, declineObservation);
+        CHECK(*score == DeclinedScore); ++generation;
+    }
+    CHECK(*score == 123); generation = originalEpoch;
+    const int priorCount = policy.count; policy.count = 0;
+    CHECK(observe_enter(object, true).accepted); // Decline-only publication.
+    policy.count = priorCount;
+    original_best = test_decline_best;
+    reservation = UnreservedPlot; *score = 413460;
+    CHECK(hook_best(object, xy) == 9 && *score == 413460 && matrix[19] == 321);
+    *score = 0; matrix[19] = -1;
+    CHECK(hook_best(object, xy) == 9 && *score == 0 && matrix[19] == -1);
+    CHECK(policy.declines[0].masked > 0 && policy.declines[0].restored > 0);
+    int lowPriorityReservation[]{77, InvalidScore - 10};
+    put_field(lateRow, RowReservationOffset, lowPriorityReservation);
+    matrix[19] = InvalidScore - 2;
+    for (int value : {InvalidScore, InvalidScore + 1}) {
+        *score = value;
+        CHECK(test_decline_best(object, xy) == 8); // Original can admit this reserved cell.
+        CHECK(hook_best(object, xy) == -1 && *score == value && matrix[19] == InvalidScore - 2);
+    }
+    put_field(lateRow, RowReservationOffset, &reservation);
+    original_best = test_best;
+    *score = 123;
+    const auto rejectedBefore = policy.declines[0].rejected;
+    put_field(lateRow, RowDistrictScoresOffset, matrix);
+    {
+        const DistrictCandidateMask detached(object, declineObservation);
+        CHECK(*score == 123 && policy.declines[0].rejected == rejectedBefore + 1);
+    }
+    put_field(lateRow, RowDistrictScoresOffset, matrix + 10);
+    policy.declineCount = 2; policy.declines[1] = {1, 7, 9, 30};
+    *score = 10; matrix[19] = 20; trace_count = TraceCapacity - 1;
+    const auto oldFaults = faults;
+    {
+        const DistrictCandidateMask noRoom(object, declineObservation);
+        CHECK(*score == 10 && matrix[19] == 20); // No partial application.
+    }
+    CHECK(!enabled && faults == oldFaults + 1);
+    faults = oldFaults; enabled = true; trace_count = TraceCapacity - 2;
+    {
+        const DistrictCandidateMask exactRoom(object, declineObservation);
+        CHECK(*score == DeclinedScore && matrix[19] == DeclinedScore);
+    }
+    CHECK(*score == 10 && matrix[19] == 20 && trace_count == TraceCapacity);
+    policy.declineCount = 0;
+    trace_count = 0; // Preserve the following late-policy test's initial journal.
+    matrix[19] = 0;
+
     test_base = lateBefore;
     AIDistrictScoreNet(&out, 8, nullptr, 0, 0, plot, city, rows, netCaller);
     CHECK(out == lateBefore && changed == 0);
@@ -543,8 +638,23 @@ int run_self_test() {
     CHECK(test_integer == 1 && staging.ownershipCount == 1);
     ownArgs[0] = 2; l_ownership_stage(asLua(ownArgs));
     CHECK(test_integer == 0 && !staging_valid); // Rejected scope poisons the batch.
+    clear_policy(staging); staging_valid = true; staging.width = staging.height = 10;
+    staging.districts = 10; staging.allowed[1] = true;
+    int declineArgs[]{1, 7, 8, 30};
+    l_decline_stage(asLua(declineArgs));
+    CHECK(test_integer == 1 && staging.declineCount == 1);
+    l_decline_stage(asLua(declineArgs)); finish_declines(staging);
+    CHECK(test_integer == 1 && staging.declineCount == 1); // Deterministic duplicate collapse.
+    policy.declineCount = 1; policy.declines[0] = staging.declines[0]; policy.version = 50;
+    int declineReceipt[]{50, 1, 7, 8, 30};
+    l_decline_receipt(asLua(declineReceipt));
+    CHECK(strstr(test_json, "\"staged\":1"));
+    declineReceipt[0] = 49; l_decline_receipt(asLua(declineReceipt));
+    CHECK(strstr(test_json, "\"staged\":0"));
+    declineArgs[2] = 10; l_decline_stage(asLua(declineArgs));
+    CHECK(test_integer == 0 && !staging_valid);
     reset_policy();
-    CHECK(policy.ownershipCount == 0 && !ownership_published);
+    CHECK(policy.ownershipCount == 0 && !ownership_published && policy.declineCount == 0);
 #undef CHECK
     return n;
 }
