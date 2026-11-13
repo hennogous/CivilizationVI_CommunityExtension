@@ -42,8 +42,15 @@ existing pinned MinHook library at CE's expected ignored local library path;
 this feature changes no upstream build system. Initial fresh3-turn pricing smoke
 qualified all five AI cities, pricing/final readiness1, normal exit0 and restored
 preferences. It did NOT demonstrate full economic bids: CSC readiness facts were
-unavailable and its established fallback remained active. A revised main-mod
-fact adapter is being qualified separately; see the CSC architecture/evidence.
+unavailable and its established fallback remained active. The revised main-mod fact adapter subsequently passed a fresh30-turn window:
+actual whole-value entries reached native writes/cache reads/eligible comparisons.
+After final mod-side review safeguards, a fresh3-turn smoke repeated16 exact
+write/cache/comparison receipts on source-matching policy. Example whole bid
+-70,076Q8 at player1/city65536/district36/plot985 was staged, written and read
+in an eligible city comparison; siteWins remained0. All sessions exited0 and
+restored preferences/packages. These qualify transport, not improved placement,
+construction or Service outcomes. See the
+[exact CSC revisions and audit](https://github.com/hennogous/Henno-Mods/blob/main/project/docs/research/mods/csc-ai-central-economy-20261113.md).
 
 
 This module adds generic district/site incentives to CE. A consuming mod publishes
