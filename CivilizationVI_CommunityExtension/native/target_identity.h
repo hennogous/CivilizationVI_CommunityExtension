@@ -40,6 +40,25 @@ inline constexpr unsigned char BuildingNominationRestoreFlag[] = {0x44, 0x0f, 0x
 inline constexpr unsigned char BuildingNominationCompare[] = {0x44, 0x3b, 0x36, 0x7e, 0x11, 0x44, 0x89, 0x36};
 inline constexpr uintptr_t GetBestDistrictRva = 0x3e4a50;
 inline constexpr uintptr_t DistrictPresentValueRva = 0x3e7f40;
+// Current XP2 SHA below; REA rechecked 13 Nov. Location takes (CityBuild*,
+// district, allowFrontierFlag) and returns borrowed Plot* or null. Request
+// Update takes (UnitRequestContract*, CityBuild*) and returns native success.
+// It retains max(stored bid, current cache), so managed Quarter requests need
+// an explicit rebase after that update. No other unit/building request is owned.
+inline constexpr uintptr_t DistrictLocationRva = 0x3e5550;
+inline constexpr uintptr_t RequestUpdateRva = 0x3fa5e0;
+inline constexpr uintptr_t AssignRequestValueRva = 0x2ca0f0;
+inline constexpr size_t RequestValueWrapperOffset = 0x148;
+inline constexpr size_t RequestValueOffset = 0x158;
+// CityDistricts::count(type, onlyComplete=false, includeReplacements=true), also
+// used by DistrictLocation before it returns an existing repair footprint.
+inline constexpr uintptr_t CountDistrictTypeRva = 0x11ec40;
+inline constexpr size_t ManagedCityDistrictsOffset = 0xb58;
+inline constexpr size_t RequestUnitOffset = 0x178;
+inline constexpr size_t RequestBuildingOffset = 0x190;
+inline constexpr size_t RequestDistrictOffset = 0x1a8;
+inline constexpr size_t RequestCoordinatesOffset = 0x1c0;
+inline constexpr size_t RequestReadableBytes = 0x1c8;
 
 // CityBuild owns a bounded array of plot-analysis rows. Row zero is the city
 // center. City and row identities are checked before observing a score.
@@ -61,6 +80,9 @@ inline constexpr size_t RowYOffset = 0x0c;
 inline constexpr size_t RowDistrictScoresOffset = 0x20;
 // The referenced native reservation starts with a signed request ID.
 inline constexpr size_t RowReservationOffset = 0x48;
+// Plot evaluator 3e2aa0 copies Plot district-present state here. Existing
+// foundations/repair footprints are outside managed NEW-investment bids.
+inline constexpr size_t RowHasDistrictOffset = 0x50;
 inline constexpr int UnreservedPlot = -1;
 inline constexpr size_t RowDistrictEligibleOffset = 0x55;
 inline constexpr size_t RowFrontierOffset = 0x57;

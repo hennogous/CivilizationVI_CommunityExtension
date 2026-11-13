@@ -186,6 +186,7 @@
     <None Include="native\building_nomination.inl" />
     <None Include="native\district_repair_admission.inl" />
     <None Include="native\district_candidate_decline.inl" />
+    <None Include="native\district_managed_values.inl" />
     <None Include="native\district_candidate_decline_api.inl" />
     <None Include="native\README.md" />
     <None Include="plh\thunk_x86.asm" />

@@ -60,6 +60,38 @@ int* __cdecl test_present(void* object, int* out, int district, void* plot) {
     *out = 3579;
     return out;
 }
+int managedAssignmentCalls{}, managedExistingCount{};
+bool managedRequestSuccess = true;
+int __cdecl test_managed_count(void*, int, bool, bool) { return managedExistingCount; }
+unsigned char managedTestPlot[PlotYOffset + sizeof(int16_t)]{};
+void __cdecl test_managed_assignment(void* wrapper, const int* value) {
+    std::memcpy(static_cast<unsigned char*>(wrapper) + RequestValueOffset - RequestValueWrapperOffset, value, sizeof(*value));
+    ++managedAssignmentCalls;
+}
+int* __cdecl test_managed_present(void*, int* out, int, void* plot) {
+    *out = plot ? *cacheTestScore : (std::max)(0, *cacheTestScore); return out;
+}
+void* __cdecl test_managed_location(void* object, int, unsigned char) {
+    auto* row = read_field<unsigned char*>(static_cast<unsigned char*>(object), CityBuildRowsOffset) + PlotAnalysisRowSize;
+    if (row[RowHasDistrictOffset]) return managedTestPlot;
+    const auto* claim = read_field<const int*>(row, RowReservationOffset);
+    if (*claim != UnreservedPlot) return nullptr; // Native location reader skips live claims.
+    return row[RowDistrictEligibleOffset] && *cacheTestScore > InvalidScore ? managedTestPlot : nullptr;
+}
+bool __cdecl test_managed_request(void* contract, void* object) {
+    auto* bytes = static_cast<unsigned char*>(contract);
+    const int district = read_field<int>(bytes, RequestDistrictOffset);
+    if (!managedRequestSuccess) return false;
+    if (district >= 0 && read_field<int>(bytes,RequestUnitOffset)==-1 && read_field<int>(bytes,RequestBuildingOffset)==-1) {
+        const int x=read_field<int>(bytes,RequestCoordinatesOffset);
+        int value{}; hook_present(object, &value, district, x<0 ? nullptr : managedTestPlot);
+        const int old = read_field<int>(bytes, RequestValueOffset);
+        const int retained = (std::max)(old, value);
+        std::memcpy(bytes + RequestValueOffset, &retained, sizeof(retained));
+    }
+    if (test_bump_epoch) ++generation;
+    return 1;
+}
 int __cdecl test_check(lua_State* L, int index) {
     return reinterpret_cast<int*>(L)[index - 1];
 }
@@ -118,7 +150,7 @@ int run_self_test() {
     CHECK(adjusted(-1048500, -256, &v) && v == MinimumScore);
     CHECK(!adjusted(-1048577, -256, &v) && v == -1048577);
     alignas(8) unsigned char object[DistrictMatrixLengthOffset + sizeof(unsigned)]{};
-    alignas(8) unsigned char city[CityOwnerOffset + sizeof(int)]{};
+    alignas(8) unsigned char city[ManagedCityDistrictsOffset + sizeof(void*)]{};
     alignas(8) unsigned char rows[2 * PlotAnalysisRowSize]{};
     alignas(8) unsigned char plot[PlotYOffset + sizeof(int16_t)]{};
     auto* row = rows;
@@ -692,29 +724,159 @@ int run_self_test() {
     CHECK(*cacheTestScore == 424242 && changed == 1); // Do not resurrect an invalid entry.
     *cacheTestScore = 777; reservation = 17;
     calculate_district_values(object, lateCaller);
-    CHECK(*cacheTestScore == 424242 && changed == 1);
+    CHECK(*cacheTestScore == -16384 && changed == 2); // Complete bids may price a reserved cell.
     reservation = UnreservedPlot; lateRow[RowFrontierOffset] = 0; lateRow[RowOwnedOffset] = 0; *cacheTestScore = 777;
     calculate_district_values(object, lateCaller);
-    CHECK(*cacheTestScore == 424242 && changed == 1); // Frontier remains separate, explicit scope.
+    CHECK(*cacheTestScore == 424242 && changed == 2); // Frontier remains separate, explicit scope.
     lateRow[RowFrontierOffset] = 1; *cacheTestScore = 777;
     calculate_district_values(object, lateCaller);
-    CHECK(*cacheTestScore == -16384 && changed == 2); // Explicit quoted frontier investment.
+    CHECK(*cacheTestScore == -16384 && changed == 3); // Explicit quoted frontier investment.
     put_field(lateRow, RowOwnerOffset, static_cast<int16_t>(2)); *cacheTestScore = 777;
     calculate_district_values(object, lateCaller);
-    CHECK(*cacheTestScore == 424242 && changed == 2);
+    CHECK(*cacheTestScore == 424242 && changed == 3);
     put_field(lateRow, RowOwnerOffset, static_cast<int16_t>(1)); put_field(lateRow, RowCityIdOffset, 8); *cacheTestScore = 777;
     calculate_district_values(object, lateCaller);
-    CHECK(*cacheTestScore == 424242 && changed == 2);
+    CHECK(*cacheTestScore == 424242 && changed == 3);
     put_field(lateRow, RowCityIdOffset, 7);
     lateRow[RowOwnedOffset] = 1; *cacheTestScore = 777; test_bump_epoch = true;
     calculate_district_values(object, lateCaller);
-    CHECK(*cacheTestScore == 424242 && changed == 2);
+    CHECK(*cacheTestScore == 424242 && changed == 3);
     test_bump_epoch = false;
     ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_final_entry(asLua(finalEntry));
     CHECK(!stage_entry(Entry{1, 7, 8, 30, 256}, false) && !staging_valid);
     finalEntry[4] = MaxDelta + 1;
     ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_final_entry(asLua(finalEntry));
     CHECK(test_integer == 0 && !staging_valid);
+    // Native consumer tests: reservation threshold, fresh/no-offer city,
+    // cache rebuild before selection and sticky request priority. These read
+    // the actual matrix in a selector stub; they do not claim a live-game ABI.
+    reset_policy(); hooks_ready = true; test_bump_epoch = false;
+    put_field(city, CityOwnerOffset, 1); put_field(city, CityIdOffset, 7);
+    put_field(lateRow, RowOwnerOffset, static_cast<int16_t>(1)); put_field(lateRow, RowCityIdOffset, 7);
+    lateRow[RowDistrictEligibleOffset] = lateRow[RowOwnedOffset] = 1; lateRow[RowHasDistrictOffset] = 0;
+    put_field(lateRow, RowDistrictScoresOffset, matrix + 10);
+    int managedClaim[]{17, 163 * Q8Units, 99}; put_field(lateRow, RowReservationOffset, managedClaim);
+    cacheTestScore = &matrix[18]; cacheTestFinal = 444512; original_cache = test_cache;
+    int managedArgs[]{1, 8, -1024 * Q8Units}; finalEntry[4] = 90000;
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_managed_type(asLua(managedArgs));
+    CHECK(test_integer == 1); l_final_entry(asLua(finalEntry)); l_commit(nullptr);
+    CHECK(test_integer == 1 && policy.managedCount == 1);
+    *cacheTestScore = 777; calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == 90000 && policy.managed[0].reservedWrites == 1);
+    CHECK(managedClaim[0] == 17 && managedClaim[1] == 163 * Q8Units && managedClaim[2] == 99);
+    CHECK(trace_records[0].kind == Final && trace_records[0].reservation == 17 && trace_records[0].phase == 1);
+    original_best = test_decline_best; matrix[19] = 100000; *cacheTestScore = 900000;
+    int managedCoordinates[2]{};
+    CHECK(hook_best(object, managedCoordinates) == 9); // Correct Quarter bid lands and loses fairly.
+    CHECK(*cacheTestScore == 90000 && matrix[19] == 100000);
+    finalEntry[4] = 130000;
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_managed_type(asLua(managedArgs)); l_final_entry(asLua(finalEntry)); l_commit(nullptr);
+    *cacheTestScore = 900000;
+    CHECK(hook_best(object, managedCoordinates) == 8 && *cacheTestScore == 130000);
+    CHECK(managedClaim[0] == 17 && managedClaim[1] == 163 * Q8Units);
+    // No explicit site offer: new cities must not fall through to a positive
+    // native building forecast while awaiting the next Lua snapshot.
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_managed_type(asLua(managedArgs)); l_commit(nullptr);
+    CHECK(test_integer == 1 && policy.count == 0);
+    *cacheTestScore = 900000;
+    CHECK(hook_best(object, managedCoordinates) == 9 && *cacheTestScore == -1024 * Q8Units);
+    put_field(city, CityIdOffset, 8); put_field(lateRow, RowCityIdOffset, 8); *cacheTestScore = 900000;
+    CHECK(hook_best(object, managedCoordinates) == 9 && *cacheTestScore == -1024 * Q8Units);
+    put_field(city, CityIdOffset, 7); put_field(lateRow, RowCityIdOffset, 7);
+    // Even a negative candidate could otherwise beat the native invalid floor.
+    managedClaim[0] = UnreservedPlot; matrix[19] = InvalidScore; *cacheTestScore = 900000;
+    CHECK(hook_best(object, managedCoordinates) == -1);
+    CHECK(*cacheTestScore == -1024 * Q8Units); // Transient admission mask restored.
+    lateRow[RowHasDistrictOffset] = 1; *cacheTestScore = 765432;
+    { const auto o = observe_enter(object); std::unique_lock guard(policyMutex); apply_managed_values(object, o, ValuePhase::Aggregation); }
+    CHECK(*cacheTestScore == 765432);
+    // Existing foundations/repair footprints retain native value and eligibility.
+    lateRow[RowHasDistrictOffset] = 0;
+    finalEntry[4] = 90000;
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_managed_type(asLua(managedArgs)); l_final_entry(asLua(finalEntry)); l_commit(nullptr);
+    original_present = test_managed_present; original_request_update = test_managed_request;
+    original_location = test_managed_location;
+    put_field(managedTestPlot, PlotXOffset, static_cast<int16_t>(0)); put_field(managedTestPlot, PlotYOffset, static_cast<int16_t>(3));
+    int managedValue{}; *cacheTestScore = 900000;
+    CHECK(hook_present(object, &managedValue, 8, nullptr) == &managedValue && managedValue == 90000);
+    *cacheTestScore = 900000;
+    CHECK(hook_location(object, 8, 0) == managedTestPlot && *cacheTestScore == 90000);
+    managedClaim[0] = 17;
+    CHECK(hook_location(object, 8, 0) == nullptr && managedClaim[0] == 17);
+    managedClaim[0] = UnreservedPlot;
+    test_request_assignment = test_managed_assignment; test_count_district_type=test_managed_count;
+    managedAssignmentCalls = managedExistingCount = 0; managedRequestSuccess=true;
+    alignas(8) unsigned char managedRequest[RequestReadableBytes]{};
+    put_field(managedRequest, RequestDistrictOffset, 8);
+    put_field(managedRequest, RequestUnitOffset, -1); put_field(managedRequest, RequestBuildingOffset, -1);
+    put_field(managedRequest, RequestCoordinatesOffset, 0); put_field(managedRequest, RequestCoordinatesOffset + sizeof(int), 3);
+    put_field(managedTestPlot, PlotXOffset, static_cast<int16_t>(0)); put_field(managedTestPlot, PlotYOffset, static_cast<int16_t>(3));
+    put_field(managedRequest, RequestValueOffset, 900000); *cacheTestScore = 900000;
+    CHECK(hook_request_update(managedRequest, object) == 1);
+    CHECK(read_field<int>(managedRequest, RequestValueOffset) == 90000 && managedAssignmentCalls == 1);
+    CHECK(policy.managed[0].requestWrites == 1 && *cacheTestScore == 90000);
+    CHECK(read_field<int>(managedRequest, RequestCoordinatesOffset) == 0 && managedClaim[0] == UnreservedPlot);
+    put_field(managedRequest, RequestDistrictOffset, -1); put_field(managedRequest, RequestValueOffset, 777777);
+    CHECK(hook_request_update(managedRequest, object) == 1 && read_field<int>(managedRequest, RequestValueOffset) == 777777);
+    CHECK(managedAssignmentCalls == 1); // Non-district requests untouched.
+    put_field(managedRequest, RequestDistrictOffset, 8); lateRow[RowHasDistrictOffset] = 1;
+    *cacheTestScore = 888888; put_field(managedRequest, RequestValueOffset, 777777);
+    CHECK(hook_request_update(managedRequest, object) == 1 && read_field<int>(managedRequest, RequestValueOffset) == 888888);
+    CHECK(managedAssignmentCalls == 1); // Existing construction/repair is native.
+    lateRow[RowHasDistrictOffset] = 0; test_bump_epoch = true; put_field(managedRequest, RequestValueOffset, 999999);
+    CHECK(hook_request_update(managedRequest, object) == 1 && read_field<int>(managedRequest, RequestValueOffset) == 999999);
+    CHECK(managedAssignmentCalls == 1); test_bump_epoch = false;
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_managed_type(asLua(managedArgs)); l_commit(nullptr);
+    put_field(managedRequest, RequestValueOffset, 444512); *cacheTestScore = 444512;
+    CHECK(hook_request_update(managedRequest, object) == 1 && read_field<int>(managedRequest, RequestValueOffset) == -1024 * Q8Units);
+    CHECK(managedAssignmentCalls == 2 && policy.managed[0].requestWrites == 1);
+    CHECK(hook_location(object, 8, 0) == nullptr && *cacheTestScore == -1024 * Q8Units);
+    CHECK(hook_present(object, &managedValue, 8, nullptr) == &managedValue && managedValue == 0);
+    int managedReceipt[]{begin[0], 1, 8}; l_managed_receipt(asLua(managedReceipt));
+    CHECK(strstr(test_json, "\"requestWrites\":1") && strstr(test_json, "\"staged\":1"));
+    // Native AL failure and branch precedence cannot grant district ownership.
+    managedRequestSuccess=false; put_field(managedRequest,RequestValueOffset,555555);
+    CHECK(!hook_request_update(managedRequest,object) && read_field<int>(managedRequest,RequestValueOffset)==555555);
+    CHECK(managedAssignmentCalls==2); managedRequestSuccess=true;
+    put_field(managedRequest,RequestBuildingOffset,3);
+    CHECK(hook_request_update(managedRequest,object) && read_field<int>(managedRequest,RequestValueOffset)==555555);
+    put_field(managedRequest,RequestBuildingOffset,-1); put_field(managedRequest,RequestUnitOffset,4);
+    CHECK(hook_request_update(managedRequest,object) && read_field<int>(managedRequest,RequestValueOffset)==555555);
+    CHECK(managedAssignmentCalls==2); put_field(managedRequest,RequestUnitOffset,-1);
+    // Locationless requests use the zero-floored column aggregate, not a
+    // fabricated exact site. Already-present Quarters retain native repair.
+    put_field(managedRequest,RequestCoordinatesOffset,-9999);
+    put_field(managedRequest,RequestCoordinatesOffset+sizeof(int),-9999);
+    CHECK(hook_request_update(managedRequest,object) && read_field<int>(managedRequest,RequestValueOffset)==0);
+    CHECK(managedAssignmentCalls==3);
+    managedExistingCount=1; put_field(managedRequest,RequestValueOffset,888888);
+    CHECK(hook_request_update(managedRequest,object) && read_field<int>(managedRequest,RequestValueOffset)==888888);
+    CHECK(managedAssignmentCalls==3); managedExistingCount=0;
+    // Critical suppliers are excluded in both placement selectors. Existing
+    // district repair lookup and every transient flag remain unchanged.
+    finalEntry[4]=90000;
+    ++begin[0];l_begin(asLua(begin));l_allow(asLua(allow));l_managed_type(asLua(managedArgs));l_final_entry(asLua(finalEntry));l_commit(nullptr);
+    policy.exclusionCount=1;policy.exclusions[0]={1,7,30}; *cacheTestScore=900000;
+    CHECK(hook_location(object,8,0)==nullptr && lateRow[RowDistrictEligibleOffset]==1);
+    lateRow[RowHasDistrictOffset]=1;
+    CHECK(hook_location(object,8,0)==managedTestPlot);
+    lateRow[RowHasDistrictOffset]=0;policy.exclusionCount=0;
+    // More repeated consumer writes than the legacy4096-write and16384-trace
+    // caps must still land. Optional samples drop, counters keep incrementing,
+    // and core Best comparisons retain their reserved journal capacity.
+    for(int iteration=0;iteration<20000;++iteration) {
+        *cacheTestScore=900000; hook_present(object,&managedValue,8,nullptr);
+    }
+    CHECK(enabled && faults==0 && changed==0 && managed_writes>=20000);
+    CHECK(*cacheTestScore==90000 && managed_trace_dropped>0 && trace_count<=MaxManagedTraceRecords);
+    matrix[19]=100000;
+    CHECK(hook_best(object,managedCoordinates)==9 && enabled && faults==0);
+    CHECK(trace_records[trace_count-1].kind==Best);
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); managedArgs[2] = 1; l_managed_type(asLua(managedArgs));
+    CHECK(test_integer == 0 && !staging_valid); managedArgs[2] = -1024 * Q8Units;
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_managed_type(asLua(managedArgs)); l_managed_type(asLua(managedArgs));
+    CHECK(test_integer == 0 && !staging_valid);
+    reset_policy(); CHECK(policy.managedCount == 0); cacheTestScore = nullptr;
     CHECK(quote_times(0, 50, 1024) && !quote_times(50, 50, 1024) && !quote_times(0, 101, 1024));
     economy_pricing_ready = false;
     int quoteArgs[]{1,7,0,256,0,50,1024};

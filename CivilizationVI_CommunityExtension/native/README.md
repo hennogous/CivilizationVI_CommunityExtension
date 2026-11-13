@@ -1,5 +1,67 @@
 # Experimental district-site score API
 
+## Managed investment delivery candidate - 13 November
+
+Branch `codex/quarter-value-delivery`, built against Windows Steam XP2 SHA256
+`092abfbb2176f8df04b5212f819dc269dd83aea866ff05aaf489904a1ff7c41f`.
+No upstream PR. The following extends, and corrects the reservation scope of,
+the historical final-entry experiment described below.
+
+- `CE_AIDistrictScoresManagedType(player,district,defaultQ8)` declares whole
+  new-investment valuation for one type. Begin/Allow precede it; sparse positive
+  FinalEntry values override a nonpositive default. Defaults are bounded
+  -4096..0 utility;256 scopes total,16 per player. Duplicate/malformed scopes
+  reject staging. No early/guarded additive entry may share a managed type.
+- `CE_AIDistrictScoresManagedReceipt(version,player,district)` returns staged,
+  considered/applied/writes, reservedWrites/fallbackWrites/masked/requestWrites,
+  protected guard counts, last identity/reason/reservation and processing time.
+  Counters reset at the next atomic commit. A write is not a selection/action.
+- Existing status adds managedTypes, managedPasses, managedMicroseconds,
+  managedWrites and managedTraceDropped. Legacy changed remains the bounded
+  additive/final-legacy write count; managed writes have a separate counter.
+
+`district_managed_values.inl` refreshes current valid cells after aggregation and
+before joint selection, type-specific location and PresentValue reads. It owns
+no reservations: nonempty IDs remain readable claims, with native thresholds.
+A nonpositive managed new investment is masked only during placement selection
+because the native selector can otherwise choose a negative candidate. Every
+byte is restored. Location selection applies the shared supplier exclusion too.
+Generic existing district footprints are excluded, preserving construction/repair.
+A managed player with no per-city entries still gets defaults in a new city.
+
+The Update hook at3fa5e0 returns bool in AL. Native building+190 and unit+178
+branches precede district+1a8; only a genuine managed district request can be
+repriced, after successful native validation/ETA update. Native Update retains
+max(old,current), so a cache-only reduction cannot retire a high old request.
+The adapter assigns wrapper+148/value+158 through2ca0f0's tracked setter, whose
+actual body consumes RCX/RDX only (incoming R8 is overwritten before use).
+No request, reservation, coordinates, ETA, queue or completion state is changed.
+Locationless requests match native max(0,column);11ec40 on city+b58 excludes
+existing Quarters using onlyComplete=false/includeReplacements=true. Existing
+pillaged districts count too: that function has no pillage exclusion.
+
+The new Location3e5550, RequestUpdate3fa5e0, setter2ca0f0 and count11ec40 entries
+have exact32-byte guards in addition to the full image identity. All detours use
+Runtime.InstallHookGroup. No raw MinHook calls or Lua callbacks enter this code.
+Borrowed native pointers never persist across calls; generation checks reject a
+retired packet. Invalid layouts/sentinels do not become legal opportunities.
+
+Loops are capped to37 native rows and16 managed types per player. Optional
+managed writes/reader traces are capped at2048 records and reserve half the
+16384 journal for core evidence; dropped samples are counted and never retire
+policy. They do not consume the old4096 legacy write budget. Core/legacy trace
+exhaustion still fails closed. Processing counters cover managed matrix passes,
+not all masks/Lua/quotes/engine work, so measure end-to-end timing separately.
+
+235 native checks pass, including a20000-consumer rewrite stress, request AL
+failure/branch precedence, reserved cells, new city defaults, locationless
+rebasing, existing-footprint exemption, supplier masks and epoch retirement.
+The four Runtime failure/cleanup cases and instruction delivery/restoration
+also pass. These synthetic checks do not establish real ABI/game performance.
+Shared-controller replay and fresh-game evidence remain separate requirements.
+Static REA bundle: `Desktop/Codex/csc-ai-placement-coverage-20261113/rea-current-consumers.json`.
+
+
 ## Complete district values and read-only economic quotes — 13 November
 
 The generic final-entry mode shares the existing atomic batch/lifecycle:
@@ -9,7 +71,7 @@ rules enter CE. The consuming mod owns valuation; CE owns qualified transport.
 
 | Lua method | Meaning |
 |---|---|
-| `CE_AIDistrictScoresFinalEntry(player,city,district,plot,valueQ8)` | Replace the whole eligible matrix cell after native building aggregation. Signed Q8 utility, bounded -4096..4096 utility. Zero/negative values are allowed; invalid native sentinels and retained reservations are never revived. |
+| `CE_AIDistrictScoresFinalEntry(player,city,district,plot,valueQ8)` | Replace the whole eligible matrix cell after native building aggregation. Signed Q8 utility, bounded -4096..4096 utility. Zero/negative values are allowed; invalid native sentinels are never revived; reservations are neither created nor changed. |
 | `CE_AIEconomyStatus()` | JSON ABI1, separate final/pricing readiness, final bounds and maximum horizon100. Presence alone is not readiness. |
 | `CE_AIYieldStreamValue(player,city,yield,amountQ8,ready,horizon,discountQ8)` | Normalize recurring yield using native defaults/player strategy, then native timed discounting. Income amount bounded +/-128 per turn, 0<=ready<horizon<=100. |
 | `CE_AIYieldFixedValue(player,city,yield,amountQ8,at,discountQ8)` | Price a one-off amount, such as a land invoice, using the equal-time branch. Amount bounded +/-4096, 0<=at<=100. |

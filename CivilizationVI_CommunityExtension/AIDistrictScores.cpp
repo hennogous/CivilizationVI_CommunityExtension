@@ -1,8 +1,9 @@
 /* CE district-site score API. Read native/README.md for publication and paging.
  *
  * There are two execution domains: gameplay Lua stages a complete numeric policy;
- * native AI jobs copy an admitted entry, run the original game routine, and apply
- * at most one adjustment if the publication generation still matches. AI hooks
+ * native AI jobs revalidate admitted entries against the current generation.
+ * Managed complete values refresh before cache consumers; new-district request
+ * bids use the same value instead of retaining an obsolete maximum. AI hooks
  * never invoke Lua/gameplay APIs. The engine owns every object/output pointer;
  * CE owns only the fixed-size policy, samples and trace journal below.
  *
@@ -17,6 +18,7 @@
 #include <atomic>
 #include <bcrypt.h>
 #include <cstddef>
+#include <chrono>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -94,9 +96,23 @@ struct OwnershipScope {
     long considered{}, owned{}, acknowledged{}, rejected{};
     int lastContract{-1}, lastPlot{-1}, lastBefore{-1}, lastAfter{-1};
 };
+// Managed types own new-district valuations, including temporarily unquoted
+// cities/sites. The caller supplies a conservative default and sparse complete
+// bids. Native legality, existing district repair and reservation ownership stay
+// authoritative. Counters reset at the same atomic publication as the scores.
+constexpr int MaxManagedTypes = 256;
+constexpr int MaxManagedTypesPerPlayer = 16;
+struct ManagedDistrictType {
+    int player{}, district{}, fallbackQ8{};
+    long considered{}, applied{}, writes{}, reservedWrites{}, fallbackWrites{};
+    long masked{}, requestWrites{}, failures{};
+    int lastCity{-1}, lastPlot{-1}, lastReason{}, lastReservation{INT_MIN};
+};
 struct Policy {
     int version{}, width{}, height{}, districts{}, count{};
     bool hasLateEntries{};
+    int managedCount{};
+    std::array<ManagedDistrictType, MaxManagedTypes> managed{};
     std::array<bool, MaxPlayers> allowed{};
     std::array<Entry, MaxEntries> entries{};
     int builderCount{};
@@ -121,6 +137,7 @@ void clear_policy(Policy& value) {
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
     value.nominationCount = value.repairCount = value.exclusionCount = value.ownershipCount = value.declineCount = 0;
     value.hasLateEntries = false;
+    value.managedCount = 0;
     value.protectWonders = false;
     value.protectHarvests = false;
     value.allowed.fill(false);
@@ -138,13 +155,15 @@ bool staging_valid{}, hooks_ready{};
 int sample_count{};
 std::array<Sample, MaxSamples> samples{};
 
-enum TraceKind { Net, Cache, Best, PresentValue, Late, Decline, Final };
-enum TraceReason { Applied = 0, ProtectedScore = 2, InvalidArithmetic, WriteBudget, LateInputMismatch, LateFinalMismatch };
+enum class ValuePhase { Aggregation = 1, JointSelection, LocationSelection, ValueRead, RequestRebase };
+enum TraceKind { Net, Cache, Best, PresentValue, Late, Decline, Final, Location, RequestValue };
+enum TraceReason { Applied = 0, ProtectedScore = 2, InvalidArithmetic, WriteBudget, LateInputMismatch, LateFinalMismatch, ManagedMissingOffer, ManagedRowAlias, ManagedRowScope, ManagedStaleValue };
 
 struct TraceRecord {
     TraceKind kind;
     int generation, version, player, city, district, plot;
     int base, result, reason, eligible;
+    int reservation{INT_MIN}, phase{}, existingDistrict{};
 };
 struct Observation {
     bool accepted{};
@@ -242,9 +261,10 @@ int adjusted(int base, int delta, int* result) {
     return 1;
 }
 
-/* Called only while the exclusive policy lock is held. Diagnostic exhaustion
- * disables further incentives rather than losing the relationship between a
- * native write and its evidence. Published policy is never changed by a hook. */
+/* Called only while the exclusive policy lock is held. Core/legacy journal
+ * exhaustion retires admission. Managed consumer writes use a separate bounded
+ * lossy sample budget plus aggregate counters, so repetition cannot exhaust the
+ * legacy write budget or crowd out native comparisons. Policy is immutable. */
 void native_fault(void) {
     faults++;
     enabled = false;
@@ -256,12 +276,29 @@ int trace_room(void) {
     }
     return 1;
 }
-void record_trace(TraceKind kind, Entry key, int district, int plot, int base, int result, int reason, int eligible) {
+void record_trace(TraceKind kind, Entry key, int district, int plot, int base, int result, int reason, int eligible,
+    int reservation = INT_MIN, int phase = 0, int existingDistrict = 0) {
     if (!trace_room())
         return;
     trace_records[trace_count++] = TraceRecord{kind, static_cast<int>(generation), policy.version,
-    key.player, key.city, district, plot, base, result, reason, eligible};
+    key.player, key.city, district, plot, base, result, reason, eligible, reservation, phase, existingDistrict};
 }
+long long managed_passes{}, managed_microseconds{}, managed_writes{};
+// Optional per-change samples must not consume the core selector/cache journal
+// or the legacy additive-write budget. Counters retain coverage when samples
+// are dropped. This is packet-local, bounded and never disables valid policy.
+constexpr int MaxManagedTraceRecords = 2048, ManagedCoreTraceReserve = TraceCapacity / 2;
+int managed_trace_records{};
+long long managed_trace_dropped{};
+void record_managed_trace(TraceKind kind, Entry key, int before, int after, int reservation, ValuePhase phase,
+    int reason = Applied, int eligible = 1, int existingDistrict = 0) {
+    if (managed_trace_records >= MaxManagedTraceRecords || trace_count >= TraceCapacity - ManagedCoreTraceReserve) {
+        ++managed_trace_dropped; return;
+    }
+    ++managed_trace_records;
+    record_trace(kind, key, key.district, key.plot, before, after, reason, eligible, reservation, static_cast<int>(phase), existingDistrict);
+}
+
 // Called with the exclusive lock and a validated score pointer. Record every
 // attempted write before allowing the next change. A late result must remain a
 // positive district opportunity within the qualified selection window.
@@ -316,6 +353,19 @@ Entry* find_city(int player, int city) {
     }
     return nullptr;
 }
+ManagedDistrictType* find_managed(int player, int district) {
+    for (int i = 0; i < policy.managedCount; ++i) {
+        auto& scope = policy.managed[i];
+        if (scope.player == player && scope.district == district) return &scope;
+    }
+    return nullptr;
+}
+bool manages_player(int player) {
+    if (player < 0 || player >= MaxPlayers || !policy.allowed[player]) return false;
+    for (int i = 0; i < policy.managedCount; ++i)
+        if (policy.managed[i].player == player) return true;
+    return false;
+}
 /* Admit read-only tracing only for a city represented in the current policy.
  * Borrow the City through CityBuild and recheck the owner and local city ID. */
 Observation observe_enter(void* object, bool includeExclusions = false) {
@@ -326,11 +376,12 @@ Observation observe_enter(void* object, bool includeExclusions = false) {
         unsigned char* city = read_field<unsigned char*>(static_cast<unsigned char*>(object), CityBuildCityOffset);
         if (readable(city, CityOwnerOffset + sizeof(int), 0)) {
             Entry* e = find_city(read_field<int>(city, CityOwnerOffset), read_field<int>(city, CityIdOffset));
-            if (e) {
+            if (e || manages_player(read_field<int>(city, CityOwnerOffset))) {
                 o.accepted = true;
-                o.hasLateEntries = policy.hasLateEntries;
+                o.hasLateEntries = policy.hasLateEntries || policy.managedCount > 0;
                 o.epoch = generation;
-                o.key = *e;
+                o.key = e ? *e : Entry{read_field<int>(city, CityOwnerOffset),
+                    read_field<int>(city, CityIdOffset), -1, -1, 0};
             } else if (includeExclusions) {
                 // An exclusion is independent of scoring. A city may still
                 // compare cached candidates without a score entry this turn.
@@ -395,7 +446,7 @@ void observe_cache(void* object, Observation o, TraceKind kind, int district, in
         if (x < 0 || y < 0 || x >= policy.width || y >= policy.height)
             continue;
         int index = y*policy.width + x;
-        if (kind == Best && index != plot)
+        if ((kind == Best || kind == Location) && index != plot)
             continue;
         int* scores = read_field<int*>(row, RowDistrictScoresOffset);
         if (!readable(scores, static_cast<size_t>(policy.districts) * sizeof(int), 0)) {
@@ -403,14 +454,33 @@ void observe_cache(void* object, Observation o, TraceKind kind, int district, in
             return;
         }
         int eligible = !!(row[RowDistrictEligibleOffset] && (row[RowOwnedOffset] || row[RowFrontierOffset]));
-        if (kind == Best) {
-            record_trace(kind, o.key, district, plot, scores[district], scores[district], 0, eligible);
+        if (kind == Best || kind == Location) {
+            const auto* reservation = read_field<const int*>(row, RowReservationOffset);
+            const int id = readable(reservation, sizeof(int), false) ? *reservation : INT_MIN;
+            int reason = Applied;
+            if (find_managed(o.key.player, district) && !row[RowHasDistrictOffset]) {
+                const auto* entry = find_pair(o.key.player, o.key.city, district, plot);
+                if (!entry || !entry->finalReplacement || entry->expectedFinal <= 0) reason = ManagedMissingOffer;
+                else if (scores[district] != entry->expectedFinal) {
+                    reason = ManagedStaleValue;
+                    if (read_field<int16_t>(row, RowOwnerOffset) != o.key.player || read_field<int>(row, RowCityIdOffset) != o.key.city) reason = ManagedRowScope;
+                    else if (readable(b, DistrictMatrixLengthOffset + sizeof(unsigned), false) && scores != read_field<int*>(b, DistrictMatrixDataOffset) + i * policy.districts) reason = ManagedRowAlias;
+                }
+            }
+            if (kind == Location && find_managed(o.key.player, district)) {
+                Entry key=o.key; key.district=district; key.plot=plot;
+                record_managed_trace(kind, key, scores[district], scores[district], id,
+                    ValuePhase::LocationSelection, reason, eligible, row[RowHasDistrictOffset] != 0);
+            } else record_trace(kind, o.key, district, plot, scores[district], scores[district], reason, eligible,
+                id, static_cast<int>(kind == Best ? ValuePhase::JointSelection : ValuePhase::LocationSelection), row[RowHasDistrictOffset] != 0);
             return;
         }
         for (int j = 0; j < policy.count; j++) {
             Entry e = policy.entries[j];
             if (e.player == o.key.player && e.city == o.key.city && e.plot == index) {
-                record_trace(kind, e, e.district, index, scores[e.district], scores[e.district], 0, eligible);
+                if (find_managed(e.player,e.district)) record_managed_trace(kind,e,scores[e.district],scores[e.district],INT_MIN,
+                    ValuePhase::Aggregation,Applied,eligible);
+                else record_trace(kind, e, e.district, index, scores[e.district], scores[e.district], 0, eligible);
                 if (!enabled)
                     return;
             }
@@ -419,7 +489,9 @@ void observe_cache(void* object, Observation o, TraceKind kind, int district, in
 }
 // The row's native score pointer must alias the writable aggregation matrix.
 // CE borrows those pointers only during one original call and revalidates
-// matrix bounds, ownership, coordinates and the reservation at both edges.
+// matrix bounds, ownership and coordinates at both edges. Only guarded
+// additive corrections require no reservation; complete values leave claims
+// intact and let the native selector apply the reservation threshold.
 struct DistrictMatrix {
     unsigned char* rows{};
     int* scores{};
@@ -463,12 +535,18 @@ int* resolve_late_cell(const DistrictMatrix& matrix, unsigned rowIndex, const En
         return nullptr;
     const auto* reservation = read_field<const int*>(row, RowReservationOffset);
     auto* rowScores = matrix.scores + rowIndex * policy.districts;
-    if (!readable(reservation, sizeof(*reservation), false) || *reservation != UnreservedPlot ||
+    if (!readable(reservation, sizeof(*reservation), false) ||
+        (!entry.finalReplacement && *reservation != UnreservedPlot) ||
         read_field<int*>(row, RowDistrictScoresOffset) != rowScores)
         return nullptr;
     auto* score = rowScores + entry.district;
     return readable(score, sizeof(*score), true) ? score : nullptr;
 }
+
+// read_matrix and observe_cache are defined above; native consumer forwards
+// are already declared by this include's verified hook signatures.
+int integer_result(lua_State* L, int value);
+#include "native/district_managed_values.inl"
 
 struct LateBatch {
     DistrictMatrix matrix;
@@ -492,6 +570,8 @@ void capture_late_rows(void* object, const Observation& observation, LateBatch& 
         const auto& entry = policy.entries[index];
         if ((!entry.expectedBefore && !entry.finalReplacement) || entry.city != observation.key.city || entry.player != observation.key.player)
             continue;
+        if (entry.finalReplacement && find_managed(entry.player, entry.district))
+            continue; // Managed values use the current post-aggregation matrix.
         for (unsigned row = 1; row < batch.matrix.rowCount; ++row) {
             const auto* score = resolve_late_cell(batch.matrix, row, entry);
             if (score) {
@@ -515,9 +595,10 @@ void apply_late_rows(void* object, const Observation& observation, const LateBat
         if (!score)
             continue;
         if (entry.finalReplacement) {
-            // Native identity/eligibility/reservation and generation were
-            // rechecked above on both sides of the original aggregation. Do
-            // not resurrect invalid native sentinels or touch retained plans.
+            // Legacy un-managed complete entry: identity, current score,
+            // matrix and generation remain guarded on both call edges. An
+            // existing reservation is left intact; it is not a blanket ban.
+            // Managed types use the separate consumer-refresh path.
             if (!candidate.matchedBefore || *score <= InvalidScore)
                 continue;
             const int before = *score;
@@ -553,6 +634,7 @@ void calculate_with_late_policy(void* object, const Observation& observation) {
     original_cache(object);
     std::unique_lock guard(policyMutex);
     apply_late_rows(object, observation, late);
+    apply_managed_values(object, observation, ValuePhase::Aggregation);
     observe_cache(object, observation, Cache, 0, 0);
 }
 
@@ -604,7 +686,7 @@ public:
             const int x = read_field<int>(row, RowXOffset);
             const int y = read_field<int>(row, RowYOffset);
             auto* eligible = row + RowDistrictEligibleOffset;
-            if (!*eligible || !row[RowOwnedOffset] || x < 0 || y < 0 || x >= policy.width || y >= policy.height ||
+            if (!*eligible || row[RowHasDistrictOffset] || !row[RowOwnedOffset] || x < 0 || y < 0 || x >= policy.width || y >= policy.height ||
                 read_field<int16_t>(row, RowOwnerOffset) != observation.key.player ||
                 read_field<int>(row, RowCityIdOffset) != observation.key.city)
                 continue;
@@ -632,6 +714,15 @@ private:
     unsigned count{};
 };
 
+// Type-specific placement must respect the same critical-supplier exclusion
+// as joint selection. Existing-footprint lookup is native and bypasses row
+// eligibility, so the mask cannot turn a repair into new-site rejection.
+void* select_protected_location(void* object, const Observation& o, int district, unsigned char frontier) {
+    const SupplierRowMask suppliers(object, o);
+    const DistrictCandidateMask declines(object, o);
+    return original_location(object, district, frontier);
+}
+
 /* A -1 return is a legitimate no-winner result; coordinates are undefined then.
  * For a winner, read exactly two int32 coordinates and keep the district return
  * unchanged. Observing a winner does not establish a request or construction. */
@@ -640,6 +731,11 @@ int __cdecl hook_best(void* object, int* coordinates) {
     Observation o = observe_enter(object, true);
     int result;
     {
+        std::unique_lock guard(policyMutex);
+        apply_managed_values(object, o, ValuePhase::JointSelection);
+    }
+    {
+        const ManagedDistrictMask managedMask(object, o);
         const SupplierRowMask mask(object, o);
         const DistrictCandidateMask candidateMask(object, o);
         result = original_best(object, coordinates);
@@ -661,29 +757,35 @@ int __cdecl hook_best(void* object, int* coordinates) {
     }
     return result;
 }
-/* Match the old observer's plot-specific scope. A null Plot* selects a different
- * native path/meaning and is intentionally not traced here. The original
- * routine must return its caller-owned out pointer; never substitute a pointer. */
+/* Refresh managed columns before the native reader. A null Plot* means the
+ * column maximum with a zero floor; trace it as plot=-1, never as a site bid.
+ * The original must return its caller-owned out pointer. */
 int* __cdecl hook_present(void* object, int* out, int district, void* plot) {
     ActiveCall activity;
     Observation o = observe_enter(object);
-    std::shared_lock guard(policyMutex);
-    if (o.accepted && enabled && generation == o.epoch && district > 0 && district < policy.districts && readable(plot, PlotYOffset + sizeof(int16_t), 0)) {
-        auto* p = static_cast<unsigned char*>(plot);
-        int x = read_field<int16_t>(p, PlotXOffset), y = read_field<int16_t>(p, PlotYOffset);
-        Entry* e = (x >= 0 && y >= 0 && x < policy.width && y < policy.height)?find_pair(o.key.player, o.key.city, district, y*policy.width + x) : nullptr;
-        if (e)
-            o.key = *e;
-        else o.accepted = false;
-    } else o.accepted = false;
-    guard.unlock();
+    {
+        std::unique_lock guard(policyMutex);
+        if (o.accepted && enabled && generation == o.epoch) {
+            apply_managed_values(object, o, ValuePhase::ValueRead, district);
+            if (district > 0 && district < policy.districts && readable(plot, PlotYOffset + sizeof(int16_t), false)) {
+                const auto* p = static_cast<const unsigned char*>(plot);
+                const int x = read_field<int16_t>(p, PlotXOffset), y = read_field<int16_t>(p, PlotYOffset);
+                o.key.plot = y * policy.width + x;
+                o.key.district = district;
+                if (x < 0 || y < 0 || x >= policy.width || y >= policy.height) o.accepted = false;
+                else if (!find_pair(o.key.player, o.key.city, district, o.key.plot) && !find_managed(o.key.player, district)) o.accepted = false;
+            } else if (!plot && find_managed(o.key.player, district)) {
+                o.key.plot = -1; o.key.district = district; // Column maximum, not an exact site.
+            } else o.accepted = false;
+        }
+    }
     int* returned = original_present(object, out, district, plot);
     if (o.accepted) {
         std::unique_lock guard(policyMutex);
         if (enabled && generation == o.epoch) {
-            if (returned != out || !readable(out, sizeof(*out), 0))
-                native_fault();
-            else record_trace(PresentValue, o.key, district, o.key.plot, *out, *out, 0, 1);
+            if (returned != out || !readable(out, sizeof(*out), false)) native_fault();
+            else if (find_managed(o.key.player,district)) record_managed_trace(PresentValue,o.key,*out,*out,INT_MIN,ValuePhase::ValueRead);
+            else record_trace(PresentValue, o.key, district, o.key.plot, *out, *out, 0, 1, INT_MIN, static_cast<int>(ValuePhase::ValueRead));
         }
     }
     return returned;
@@ -999,6 +1101,11 @@ int l_commit(lua_State* L) {
     {
         std::unique_lock guard(policyMutex);
         ok = staging_valid && hooks_ready && !faults;
+        // A managed type uses complete prices/default deferral, never a mix
+        // with old additive entries. Reject ambiguity before the atomic commit.
+        for (int m = 0; ok && m < staging.managedCount; ++m)
+            for (int i = 0; i < staging.count; ++i)
+                if (staging.entries[i].player == staging.managed[m].player && staging.entries[i].district == staging.managed[m].district && !staging.entries[i].finalReplacement) ok = false;
         if (ok) {
             const auto first = staging.builders.begin();
             const auto end = first + staging.builderCount;
@@ -1032,6 +1139,8 @@ int l_commit(lua_State* L) {
             harvest_rejected = 0;
             first_harvest_rejection = {};
             changed = matched = sample_count = trace_count = 0;
+            managed_passes = managed_microseconds = managed_writes = managed_trace_dropped = 0;
+            managed_trace_records = 0;
             generation++;
             enabled = true;
         }
@@ -1090,10 +1199,10 @@ int l_status(lua_State* L) {
         snprintf(
             output + n,
             sizeof output - n,
-            "],\"trace_count\":%d,\"trace_capacity\":%d,\"active\":%ld}",
+            "],\"trace_count\":%d,\"trace_capacity\":%d,\"active\":%ld,\"managedTypes\":%d,\"managedPasses\":%lld,\"managedMicroseconds\":%lld,\"managedWrites\":%lld,\"managedTraceDropped\":%lld}",
             trace_count,
             TraceCapacity,
-            active.load()
+            active.load(), policy.managedCount, managed_passes, managed_microseconds, managed_writes, managed_trace_dropped
         );
     }
     push_json(L, output, strlen(output));
@@ -1192,13 +1301,13 @@ int l_trace_read(lua_State* L) {
         offset + count,
         stale?"true":"false"
     );
-    constexpr const char* kinds[] = {"net", "cache", "best", "pv", "late", "decline", "final"};
+    constexpr const char* kinds[] = {"net", "cache", "best", "pv", "late", "decline", "final", "location", "request"};
     for (int i = 0; i < count; i++) {
         TraceRecord r = page[i];
         n += snprintf(
             output + n,
             sizeof output - n,
-            "%s{\"k\":\"%s\",\"generation\":%d,\"version\":%d,\"player\":%d,\"city\":%d,\"district\":%d,\"plot\":%d,\"base\":%d,\"result\":%d,\"reason\":%d,\"eligible\":%d}",
+            "%s{\"k\":\"%s\",\"generation\":%d,\"version\":%d,\"player\":%d,\"city\":%d,\"district\":%d,\"plot\":%d,\"base\":%d,\"result\":%d,\"reason\":%d,\"eligible\":%d,\"reservationId\":%d,\"phase\":%d,\"existingDistrict\":%d}",
             i?",":"",
             kinds[r.kind],
             r.generation,
@@ -1210,7 +1319,7 @@ int l_trace_read(lua_State* L) {
             r.base,
             r.result,
             r.reason,
-            r.eligible
+            r.eligible, r.reservation, r.phase, r.existingDistrict
         );
     }
     snprintf(output + n, sizeof output - n, "]}");
@@ -1271,6 +1380,10 @@ bool verify_file(const wchar_t* path) {
 const unsigned char fingerprint_cache[32] = {0x4c, 0x8b, 0xdc, 0x41, 0x55, 0x48, 0x81, 0xec, 0xa0, 0x00, 0x00, 0x00, 0x83, 0xb9, 0xd8, 0x04, 0x00, 0x00, 0x00, 0x4c, 0x8b, 0xe9, 0x0f, 0x84, 0xae, 0x03, 0x00, 0x00, 0x48, 0x8b, 0x91, 0xc8};
 const unsigned char fingerprint_best[32] = {0x48, 0x89, 0x4c, 0x24, 0x08, 0x53, 0x55, 0x56, 0x41, 0x54, 0x41, 0x55, 0x41, 0x57, 0x48, 0x83, 0xec, 0x28, 0x4c, 0x8b, 0xea, 0x48, 0x8b, 0xe9, 0xe8, 0x73, 0xbe, 0x3e, 0x00, 0x48, 0x8b, 0xb5};
 const unsigned char fingerprint_present[32] = {0x4d, 0x63, 0xd8, 0x4c, 0x8b, 0xd2, 0x48, 0x8b, 0xc1, 0x41, 0x83, 0xfb, 0xff, 0x75, 0x08, 0x33, 0xc9, 0x48, 0x8b, 0xc2, 0x89, 0x0a, 0xc3, 0x4d, 0x85, 0xc9, 0x74, 0x4d, 0x8b, 0x81, 0xd8, 0x04};
+const unsigned char fingerprint_location[32] = {0x44, 0x88, 0x44, 0x24, 0x18, 0x53, 0x41, 0x55, 0x41, 0x56, 0x48, 0x83, 0xec, 0x40, 0x4c, 0x8b, 0xf1, 0x4c, 0x63, 0xea, 0x48, 0x8b, 0x89, 0x90, 0x00, 0x00, 0x00, 0x41, 0xb1, 0x01, 0x48, 0x81};
+const unsigned char fingerprint_request_update[32] = {0x40, 0x55, 0x56, 0x57, 0x48, 0x8b, 0xec, 0x48, 0x83, 0xec, 0x30, 0x83, 0xb9, 0x90, 0x01, 0x00, 0x00, 0xff, 0x48, 0x8b, 0xf2, 0x48, 0x89, 0x5c, 0x24, 0x58, 0x48, 0x8b, 0xf9, 0x0f, 0x84, 0x82};
+const unsigned char fingerprint_request_assignment[32] = {0x48, 0x89, 0x5c, 0x24, 0x18, 0x57, 0x48, 0x83, 0xec, 0x30, 0x48, 0x8d, 0x79, 0x10, 0x48, 0x8b, 0xda, 0x4c, 0x8b, 0xd1, 0x48, 0x3b, 0xfa, 0x0f, 0x84, 0xf7, 0x00, 0x00, 0x00, 0x48, 0x8b, 0x41};
+const unsigned char fingerprint_district_type_count[32] = {0x40, 0x53, 0x55, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec, 0x20, 0x4c, 0x8b, 0xf1, 0x45, 0x0f, 0xb6, 0xf9, 0x8b, 0xca, 0x45, 0x0f, 0xb6, 0xe0, 0x33, 0xdb, 0xe8, 0x2f, 0x19, 0x09};
 // Qualify all targets before CE's own registration hook changes the image.
 // The registration prefix is an identity guard, not an additional hook.
 bool install_hooks() {
@@ -1288,7 +1401,11 @@ bool install_hooks() {
         std::memcmp(base + DistrictNetValueRva, fingerprint_net, sizeof fingerprint_net) ||
         std::memcmp(base + CalculateDistrictValuesRva, fingerprint_cache, sizeof fingerprint_cache) ||
         std::memcmp(base + GetBestDistrictRva, fingerprint_best, sizeof fingerprint_best) ||
-        std::memcmp(base + DistrictPresentValueRva, fingerprint_present, sizeof fingerprint_present))
+        std::memcmp(base + DistrictPresentValueRva, fingerprint_present, sizeof fingerprint_present) ||
+        std::memcmp(base + DistrictLocationRva, fingerprint_location, sizeof fingerprint_location) ||
+        std::memcmp(base + RequestUpdateRva, fingerprint_request_update, sizeof fingerprint_request_update) ||
+        std::memcmp(base + AssignRequestValueRva, fingerprint_request_assignment, sizeof fingerprint_request_assignment) ||
+        std::memcmp(base + CountDistrictTypeRva, fingerprint_district_type_count, sizeof fingerprint_district_type_count))
         return false;
 
     // Hooks and native originals are process-owned. Pin CE before installing
@@ -1303,6 +1420,8 @@ bool install_hooks() {
         DescribeHook("District NetValue", GetGameCoreGlobalAt<NetFn>(DistrictNetValueRva), &AIDistrictScoreNetEntry, &original_net),
         DescribeHook("CalculateDistrictValues", GetGameCoreGlobalAt<CacheFn>(CalculateDistrictValuesRva), &hook_cache, &original_cache),
         DescribeHook("GetBestDistrict", GetGameCoreGlobalAt<BestFn>(GetBestDistrictRva), &hook_best, &original_best),
+        DescribeHook("District Location", GetGameCoreGlobalAt<LocationFn>(DistrictLocationRva), &hook_location, &original_location),
+        DescribeHook("Quarter Request Value", GetGameCoreGlobalAt<RequestUpdateFn>(RequestUpdateRva), &hook_request_update, &original_request_update),
         DescribeHook("District PresentValueOf", GetGameCoreGlobalAt<PresentFn>(DistrictPresentValueRva), &hook_present, &original_present),
     };
     return InstallHookGroup(hooks);
@@ -1319,6 +1438,8 @@ void reset_policy(void) {
     generation++;
     clear_policy(policy);
     changed = matched = sample_count = trace_count = faults = 0;
+    managed_passes = managed_microseconds = managed_writes = managed_trace_dropped = 0;
+            managed_trace_records = 0;
     builder_changed = builder_bids = builder_faults = wonder_changed = wonder_faults = 0;
     first_builder_bid = {};
     first_wonder_change = {};
@@ -1410,6 +1531,8 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_status, "CE_AIDistrictScoresStatus", hks::LUA_GLOBAL, "CE_AIDistrictScoresStatus");
     PushLuaMethod(L, l_district_receipt, "CE_AIDistrictScoresReceipt", hks::LUA_GLOBAL, "CE_AIDistrictScoresReceipt");
     PushLuaMethod(L, l_nomination_receipt, "CE_AIBuildingNominationReceipt", hks::LUA_GLOBAL, "CE_AIBuildingNominationReceipt");
+    PushLuaMethod(L, l_managed_type, "CE_AIDistrictScoresManagedType", hks::LUA_GLOBAL, "CE_AIDistrictScoresManagedType");
+    PushLuaMethod(L, l_managed_receipt, "CE_AIDistrictScoresManagedReceipt", hks::LUA_GLOBAL, "CE_AIDistrictScoresManagedReceipt");
     PushLuaMethod(L, l_trace_count, "CE_AIDistrictScoresTraceCount", hks::LUA_GLOBAL, "CE_AIDistrictScoresTraceCount");
     PushLuaMethod(L, l_trace_read, "CE_AIDistrictScoresTraceRead", hks::LUA_GLOBAL, "CE_AIDistrictScoresTraceRead");
 }
