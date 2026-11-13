@@ -57,6 +57,9 @@ struct Entry {
     // A positive expected score marks a late entry. Early entries have no
     // expected aggregate and still flow through the original NetValue hook.
     int expectedBefore{}, expectedFinal{};
+    // A final replacement is a caller-valued complete bid, not an additive
+    // correction. It is exclusive with early/guarded-late entries for this key.
+    bool finalReplacement{};
 };
 struct Sample {
     Entry key;
@@ -135,7 +138,7 @@ bool staging_valid{}, hooks_ready{};
 int sample_count{};
 std::array<Sample, MaxSamples> samples{};
 
-enum TraceKind { Net, Cache, Best, PresentValue, Late, Decline };
+enum TraceKind { Net, Cache, Best, PresentValue, Late, Decline, Final };
 enum TraceReason { Applied = 0, ProtectedScore = 2, InvalidArithmetic, WriteBudget, LateInputMismatch, LateFinalMismatch };
 
 struct TraceRecord {
@@ -454,7 +457,9 @@ int* resolve_late_cell(const DistrictMatrix& matrix, unsigned rowIndex, const En
     const int x = read_field<int>(row, RowXOffset);
     const int y = read_field<int>(row, RowYOffset);
     if (x < 0 || y < 0 || x >= policy.width || y >= policy.height ||
-        y * policy.width + x != entry.plot || !row[RowDistrictEligibleOffset] || !row[RowOwnedOffset])
+        y * policy.width + x != entry.plot || !row[RowDistrictEligibleOffset] ||
+        !(row[RowOwnedOffset] || entry.finalReplacement && row[RowFrontierOffset]) ||
+        read_field<int16_t>(row, RowOwnerOffset) != entry.player || read_field<int>(row, RowCityIdOffset) != entry.city)
         return nullptr;
     const auto* reservation = read_field<const int*>(row, RowReservationOffset);
     auto* rowScores = matrix.scores + rowIndex * policy.districts;
@@ -485,12 +490,12 @@ void capture_late_rows(void* object, const Observation& observation, LateBatch& 
         return;
     for (int index = 0; index < policy.count; ++index) {
         const auto& entry = policy.entries[index];
-        if (!entry.expectedBefore || entry.city != observation.key.city || entry.player != observation.key.player)
+        if ((!entry.expectedBefore && !entry.finalReplacement) || entry.city != observation.key.city || entry.player != observation.key.player)
             continue;
         for (unsigned row = 1; row < batch.matrix.rowCount; ++row) {
             const auto* score = resolve_late_cell(batch.matrix, row, entry);
             if (score) {
-                batch.candidates[index] = {static_cast<uint8_t>(row), *score == entry.expectedBefore};
+                batch.candidates[index] = {static_cast<uint8_t>(row), entry.finalReplacement ? *score > InvalidScore : *score == entry.expectedBefore};
                 break;
             }
         }
@@ -509,6 +514,27 @@ void apply_late_rows(void* object, const Observation& observation, const LateBat
         auto* score = resolve_late_cell(batch.matrix, candidate.row, entry);
         if (!score)
             continue;
+        if (entry.finalReplacement) {
+            // Native identity/eligibility/reservation and generation were
+            // rechecked above on both sides of the original aggregation. Do
+            // not resurrect invalid native sentinels or touch retained plans.
+            if (!candidate.matchedBefore || *score <= InvalidScore)
+                continue;
+            const int before = *score;
+            ++matched;
+            if (before != entry.expectedFinal) {
+                if (changed >= TraceCapacity || trace_count >= TraceCapacity) {
+                    native_fault();
+                    return;
+                }
+                *score = entry.expectedFinal;
+                ++changed;
+                if (sample_count < MaxSamples)
+                    samples[sample_count++] = Sample{entry, before, *score};
+            }
+            record_trace(Final, entry, entry.district, entry.plot, before, *score, Applied, 1);
+            continue;
+        }
         if (!candidate.matchedBefore || *score != entry.expectedFinal) {
             record_trace(Late, entry, entry.district, entry.plot, *score, *score,
                 candidate.matchedBefore ? LateFinalMismatch : LateInputMismatch, 1);
@@ -695,7 +721,7 @@ extern "C" int* AIDistrictScoreNet(int* out, unsigned district, int* time, int r
                 read_field<int>(row, RowXOffset) == x && read_field<int>(row, RowYOffset) == y && read_field<int16_t>(row, RowOwnerOffset) == player &&
                 read_field<int>(row, RowCityIdOffset) == cityId && row[RowDistrictEligibleOffset] && (row[RowOwnedOffset] || row[RowFrontierOffset])) {
                 Entry* e = find_pair(player, cityId, static_cast<int>(district), y*policy.width + x);
-                if (e && !e->expectedBefore) {
+                if (e && !e->expectedBefore && !e->finalReplacement) {
                     entry = *e;
                     epoch = generation;
                     found = true;
@@ -777,8 +803,10 @@ bool stage_entry(const Entry& entry, bool late) {
     bool ok = staging_valid && staging.count < MaxEntries && entry.player >= 0 && entry.player < MaxPlayers &&
         staging.allowed[entry.player] && entry.city >= 0 && entry.district > 0 && entry.district < staging.districts &&
         entry.plot >= 0 && entry.plot < staging.width * staging.height &&
-        entry.delta >= MinDelta && entry.delta <= MaxDelta && entry.delta != 0;
-    if (late) {
+        (entry.finalReplacement
+            ? entry.delta == 0 && entry.expectedBefore == 0 && entry.expectedFinal >= MinimumScore && entry.expectedFinal <= MaxDelta
+            : entry.delta >= MinDelta && entry.delta <= MaxDelta && entry.delta != 0);
+    if (late && !entry.finalReplacement) {
         const auto adjustedFinal = static_cast<int64_t>(entry.expectedFinal) + entry.delta;
         ok = ok && entry.expectedBefore > 0 && entry.expectedFinal >= entry.expectedBefore && entry.expectedFinal <= MaxScore &&
             adjustedFinal > 0 && adjustedFinal <= MaxScore;
@@ -900,6 +928,14 @@ int l_wonder_status(lua_State* L) {
     }
     push_json(L, output, strlen(output));
     return 1;
+}
+
+#include "native/economy_pricing.inl"
+
+int l_final_entry(lua_State* L) {
+    const Entry entry{hks::checkinteger(L, 1), hks::checkinteger(L, 2), hks::checkinteger(L, 3),
+        hks::checkinteger(L, 4), 0, 0, hks::checkinteger(L, 5), true};
+    return integer_result(L, stage_entry(entry, true));
 }
 
 int l_late_entry(lua_State* L) {
@@ -1084,7 +1120,7 @@ int l_district_receipt(lua_State* L) {
                 if (record.kind == Best) {
                     ++citySelections;
                     siteWins += sameSite;
-                } else if (sameSite && (record.kind == Net || record.kind == Late)) {
+                } else if (sameSite && (record.kind == Net || record.kind == Late || record.kind == Final)) {
                     ++scoreAttempts;
                     writes += record.base != record.result;
                     lastReason = record.reason;
@@ -1156,7 +1192,7 @@ int l_trace_read(lua_State* L) {
         offset + count,
         stale?"true":"false"
     );
-    constexpr const char* kinds[] = {"net", "cache", "best", "pv", "late", "decline"};
+    constexpr const char* kinds[] = {"net", "cache", "best", "pv", "late", "decline", "final"};
     for (int i = 0; i < count; i++) {
         TraceRecord r = page[i];
         n += snprintf(
@@ -1324,6 +1360,9 @@ bool Create() {
     if (!length || length >= std::size(path) || !verify_file(path))
         return false;
     hooks_ready = install_hooks();
+    // Pricing is optional; retain the qualified district/protection interfaces
+    // when any read-only helper differs from this exact target.
+    economy_pricing_ready = hooks_ready && qualify_economy_pricing();
     // The Builder boundary is optional. An unsupported prefix must not
     // disable the already qualified district interface.
     builder_ready = hooks_ready && install_builder_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
@@ -1349,6 +1388,11 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_stage_wonder_protection, "CE_AISupplierWonderProtectionStage", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStage");
     PushLuaMethod(L, l_wonder_status, "CE_AISupplierWonderProtectionStatus", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStatus");
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
+    PushLuaMethod(L, l_final_entry, "CE_AIDistrictScoresFinalEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresFinalEntry");
+    PushLuaMethod(L, l_economy_status, "CE_AIEconomyStatus", hks::LUA_GLOBAL, "CE_AIEconomyStatus");
+    PushLuaMethod(L, l_yield_stream_value, "CE_AIYieldStreamValue", hks::LUA_GLOBAL, "CE_AIYieldStreamValue");
+    PushLuaMethod(L, l_yield_fixed_value, "CE_AIYieldFixedValue", hks::LUA_GLOBAL, "CE_AIYieldFixedValue");
+    PushLuaMethod(L, l_amenity_stream_value, "CE_AIAmenityStreamValue", hks::LUA_GLOBAL, "CE_AIAmenityStreamValue");
     PushLuaMethod(L, l_nomination_bid, "CE_AIBuildingNominationBid", hks::LUA_GLOBAL, "CE_AIBuildingNominationBid");
     PushLuaMethod(L, l_nomination_status, "CE_AIBuildingNominationStatus", hks::LUA_GLOBAL, "CE_AIBuildingNominationStatus");
     PushLuaMethod(L, l_ownership_stage, "CE_AIDistrictPurchaseCompletionStage", hks::LUA_GLOBAL, "CE_AIDistrictPurchaseCompletionStage");

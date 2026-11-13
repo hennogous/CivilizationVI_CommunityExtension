@@ -7,6 +7,20 @@ namespace AI::DistrictScores::GameCoreLayout {
 // section layout match the previous image. See native/README.md for the
 // recovered signatures, caller/register usage and fixture. Requalify the offsets
 // and instruction prefixes together before adding support for another image.
+// Generic economic quote helpers, rechecked against the text-identical November
+// XP2 profile. NormalizeYields and timed income use Q8 pointers/return buffers;
+// AmenityValue also receives the actual player and recipient city. No pointers
+// escape a quote. Requalify these functions together with the layout below.
+inline constexpr uintptr_t NativePlayerRegistryRva = 0x306b80;
+inline constexpr uintptr_t NativeCityFindRva = 0x2c4360;
+inline constexpr uintptr_t NormalizeYieldIncomeRva = 0x52b110;
+inline constexpr uintptr_t DiscountTimedIncomeRva = 0x528660;
+inline constexpr uintptr_t AmenityIncomeValueRva = 0x5272a0;
+inline constexpr uintptr_t YieldDefinitionsRva = 0x7d1ce0;
+// NativeCityFind reads the city collection through its end pointer at +0xa0.
+inline constexpr size_t CityCollectionReadableBytes = 0xa8;
+inline constexpr size_t RegistryPlayerArrayOffset = 0x20;
+inline constexpr size_t PlayerCitiesPointerOffset = 0x6d0;
 inline constexpr uintptr_t RegisterScriptDataRva = 0x5bdac0;
 inline constexpr uintptr_t DistrictNetValueRva = 0x52a440;
 inline constexpr uintptr_t NetValueFromPlotAnalysisReturnRva = 0x3e30be;

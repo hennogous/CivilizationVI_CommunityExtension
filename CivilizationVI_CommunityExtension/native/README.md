@@ -1,5 +1,51 @@
 # Experimental district-site score API
 
+## Complete district values and read-only economic quotes — 13 November
+
+The generic final-entry mode shares the existing atomic batch/lifecycle:
+`Begin → Allow → FinalEntry → Commit`. It is exclusive with early/guarded-late
+entries for the same player/city/district/plot. No CSC identifiers or transaction
+rules enter CE. The consuming mod owns valuation; CE owns qualified transport.
+
+| Lua method | Meaning |
+|---|---|
+| `CE_AIDistrictScoresFinalEntry(player,city,district,plot,valueQ8)` | Replace the whole eligible matrix cell after native building aggregation. Signed Q8 utility, bounded -4096..4096 utility. Zero/negative values are allowed; invalid native sentinels and retained reservations are never revived. |
+| `CE_AIEconomyStatus()` | JSON ABI1, separate final/pricing readiness, final bounds and maximum horizon100. Presence alone is not readiness. |
+| `CE_AIYieldStreamValue(player,city,yield,amountQ8,ready,horizon,discountQ8)` | Normalize recurring yield using native defaults/player strategy, then native timed discounting. Income amount bounded +/-128 per turn, 0<=ready<horizon<=100. |
+| `CE_AIYieldFixedValue(player,city,yield,amountQ8,at,discountQ8)` | Price a one-off amount, such as a land invoice, using the equal-time branch. Amount bounded +/-4096, 0<=at<=100. |
+| `CE_AIAmenityStreamValue(player,city,count,ready,horizon,discountQ8)` | Native city/player amenity valuation; count bounded +/-8 and same recurring timing limits. |
+
+Pricing returns an integer Q8 utility, or no Lua result (`nil`) when unavailable.
+Never interpret nil as a free investment or zero income. Discount must be positive
+and at most64 in Q8 units. The calling thread is the game's ordinary Lua thread;
+no native hook calls back into Lua and no pointer survives a quote. Game context,
+owner/city identity, definition index, timing and numeric/sign bounds are checked.
+
+`target_identity.h` names every new RVA and field. `economy_pricing.inl` documents
+ABI aliases and verifies helper entry bytes after Create's full binary SHA check.
+The registry accessor306b80 and city lookup2c4360 resolve current player/city
+objects; normalization52b110, timed income528660 and amenity5272a0 are read-only
+calls, not hooks. Yield definition lookup7d1ce0 is covered by the full SHA guard.
+Ghidra reference XP2 SHA324c51e9 and supported November hotfix SHA092abfbb have
+identical relevant text. Do not port offsets by assuming another build matches.
+
+Final mode uses the existing Runtime aggregation-call hook. It snapshots before
+the original aggregation and revalidates epoch, matrix/row identity, intended
+owner/city, eligible owned/frontier status, reservation and invalid sentinels
+afterward. A qualified final write is a `Final` trace/receipt, distinct from early
+`Net` and guarded `Late`. A published bid, successful write, selector winner,
+purchase and completed construction remain separate evidence.
+
+Native regression:184 district checks,4 shared-hook failure/cleanup cases and
+instruction-call delivery/restoration pass. The supported Release build uses the
+existing pinned MinHook library at CE's expected ignored local library path;
+this feature changes no upstream build system. Initial fresh3-turn pricing smoke
+qualified all five AI cities, pricing/final readiness1, normal exit0 and restored
+preferences. It did NOT demonstrate full economic bids: CSC readiness facts were
+unavailable and its established fallback remained active. A revised main-mod
+fact adapter is being qualified separately; see the CSC architecture/evidence.
+
+
 This module adds generic district/site incentives to CE. A consuming mod publishes
 numeric player/city/district/plot adjustments through gameplay Lua. CE applies
 qualified adjustments to fresh native outputs and records diagnostic observations.

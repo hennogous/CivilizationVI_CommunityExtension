@@ -655,6 +655,73 @@ int run_self_test() {
     CHECK(test_integer == 0 && !staging_valid);
     reset_policy();
     CHECK(policy.ownershipCount == 0 && !ownership_published && policy.declineCount == 0);
+
+    // Complete-value replacement does not depend on captured score snapshots.
+    reset_policy(); hooks_ready = true;
+    put_field(city, CityOwnerOffset, 1); put_field(city, CityIdOffset, 7);
+    put_field(object, CityBuildCityOffset, static_cast<void*>(city));
+    put_field(object, CityBuildRowsOffset, rows); put_field(object, CityBuildRowCountOffset, 2u);
+    put_field(object, DistrictMatrixDataOffset, matrix); put_field(object, DistrictMatrixLengthOffset, 20u);
+    put_field(object, DistrictMatrixCapacityOffset, 20u);
+    put_field(lateRow, RowXOffset, 0); put_field(lateRow, RowYOffset, 3);
+    put_field(lateRow, RowDistrictScoresOffset, matrix + 10);
+    put_field(lateRow, RowReservationOffset, &reservation);
+    lateRow[RowDistrictEligibleOffset] = 1; lateRow[RowOwnedOffset] = 1;
+    put_field(lateRow, RowOwnerOffset, static_cast<int16_t>(1)); put_field(lateRow, RowCityIdOffset, 7);
+    cacheTestScore = &matrix[18]; cacheTestReservation = nullptr; original_cache = test_cache;
+    int finalEntry[]{1, 7, 8, 30, 12345};
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_final_entry(asLua(finalEntry));
+    CHECK(test_integer == 1 && staging.entries[0].finalReplacement && staging.hasLateEntries);
+    l_commit(nullptr); *cacheTestScore = 777; cacheTestFinal = 424242; reservation = UnreservedPlot;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == 12345 && changed == 1 && trace_records[0].kind == Final);
+    CHECK(samples[0].base == 424242 && samples[0].result == 12345);
+    *cacheTestScore = 99000; cacheTestFinal = 909090;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == 12345 && changed == 2); // Dynamic native inputs, same published bid.
+    finalEntry[4] = -16384;
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_final_entry(asLua(finalEntry)); l_commit(nullptr);
+    *cacheTestScore = 777; cacheTestFinal = 424242;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == -16384 && changed == 1); // A genuinely unattractive legal investment.
+    *cacheTestScore = 777; cacheTestFinal = InvalidScore;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == InvalidScore && changed == 1);
+    *cacheTestScore = InvalidScore; cacheTestFinal = 424242;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == 424242 && changed == 1); // Do not resurrect an invalid entry.
+    *cacheTestScore = 777; reservation = 17;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == 424242 && changed == 1);
+    reservation = UnreservedPlot; lateRow[RowFrontierOffset] = 0; lateRow[RowOwnedOffset] = 0; *cacheTestScore = 777;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == 424242 && changed == 1); // Frontier remains separate, explicit scope.
+    lateRow[RowFrontierOffset] = 1; *cacheTestScore = 777;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == -16384 && changed == 2); // Explicit quoted frontier investment.
+    put_field(lateRow, RowOwnerOffset, static_cast<int16_t>(2)); *cacheTestScore = 777;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == 424242 && changed == 2);
+    put_field(lateRow, RowOwnerOffset, static_cast<int16_t>(1)); put_field(lateRow, RowCityIdOffset, 8); *cacheTestScore = 777;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == 424242 && changed == 2);
+    put_field(lateRow, RowCityIdOffset, 7);
+    lateRow[RowOwnedOffset] = 1; *cacheTestScore = 777; test_bump_epoch = true;
+    calculate_district_values(object, lateCaller);
+    CHECK(*cacheTestScore == 424242 && changed == 2);
+    test_bump_epoch = false;
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_final_entry(asLua(finalEntry));
+    CHECK(!stage_entry(Entry{1, 7, 8, 30, 256}, false) && !staging_valid);
+    finalEntry[4] = MaxDelta + 1;
+    ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_final_entry(asLua(finalEntry));
+    CHECK(test_integer == 0 && !staging_valid);
+    CHECK(quote_times(0, 50, 1024) && !quote_times(50, 50, 1024) && !quote_times(0, 101, 1024));
+    economy_pricing_ready = false;
+    int quoteArgs[]{1,7,0,256,0,50,1024};
+    CHECK(l_yield_stream_value(asLua(quoteArgs)) == 0);
+    CHECK(l_yield_fixed_value(asLua(quoteArgs)) == 0);
+    cacheTestScore = nullptr; reset_policy();
+
 #undef CHECK
     return n;
 }
