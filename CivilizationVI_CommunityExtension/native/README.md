@@ -46,6 +46,16 @@ Runtime.InstallHookGroup. No raw MinHook calls or Lua callbacks enter this code.
 Borrowed native pointers never persist across calls; generation checks reject a
 retired packet. Invalid layouts/sentinels do not become legal opportunities.
 
+Physical-footprint correction: row+50 is HasImprovement, not HasDistrict.
+Row+51 means completed/unpillaged district and cannot preserve a foundation or
+repair. All managed operations and the shared supplier/typed-decline masks
+instead query the actual city district collection using the already qualified
+repair getter11e520(city+b58,&xy). No completion/pillage filter is imposed.
+Its entry prefix is checked, and the full160-byte body matches the qualified
+reference/current binary. A missing/unreadable object preserves native state.
+Independent fixtures distinguish improved empty land, foundations before/after
+improvement removal, pillaged districts and stale protection scopes.
+
 Loops are capped to37 native rows and16 managed types per player. Optional
 managed writes/reader traces are capped at2048 records and reserve half the
 16384 journal for core evidence; dropped samples are counted and never retire
@@ -53,7 +63,7 @@ policy. They do not consume the old4096 legacy write budget. Core/legacy trace
 exhaustion still fails closed. Processing counters cover managed matrix passes,
 not all masks/Lua/quotes/engine work, so measure end-to-end timing separately.
 
-235 native checks pass, including a20000-consumer rewrite stress, request AL
+243 native checks pass, including a20000-consumer rewrite stress, request AL
 failure/branch precedence, reserved cells, new city defaults, locationless
 rebasing, existing-footprint exemption, supplier masks and epoch retirement.
 The four Runtime failure/cleanup cases and instruction delivery/restoration

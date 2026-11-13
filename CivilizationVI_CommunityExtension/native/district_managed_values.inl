@@ -6,7 +6,9 @@
 // All helpers below require policyMutex, borrow current pointers only, and never
 // invoke Lua. Every bound derives from the published table or native 37-row cap.
 enum class ManagedReason { Applied, NoMatrix, Ineligible, WrongCity, ReservationUnreadable,
-    ScoreAlias, ScoreUnwritable, NativeInvalid, ExistingDistrict };
+    ScoreAlias, ScoreUnwritable, NativeInvalid, ExistingDistrict, FootprintUnavailable };
+struct ManagedCoordinates { int x, y; };
+using DistrictAtFn = unsigned char* (__cdecl *)(void*, const ManagedCoordinates*);
 using LocationFn = void* (__cdecl *)(void*, int, unsigned char);
 using RequestUpdateFn = bool (__cdecl *)(void*, void*);
 // Current setter body reads RCX(wrapper), RDX(value*) only. It overwrites R8B
@@ -18,22 +20,47 @@ RequestUpdateFn original_request_update{};
 #ifdef CE_AI_DISTRICT_SCORES_TEST
 AssignRequestValueFn test_request_assignment{};
 CountDistrictTypeFn test_count_district_type{};
+DistrictAtFn test_district_at{};
 #endif
+
+// Read the real city's district collection, not cached plot-analysis flags.
+// Row+50 means improvement; row+51 excludes unfinished/pillaged districts.
+// A foundation must remain exempt even after it removes its old improvement.
+// The existing repair helper11e520 resolves coordinates and imposes neither
+// completion nor pillage gates. This getter invokes no AI hook/Lua callback.
+int managed_footprint_type(void* object, int plot) {
+    const auto* build=static_cast<const unsigned char*>(object);
+    auto* city=read_field<unsigned char*>(build,CityBuildCityOffset);
+    if (plot<0 || plot>=policy.width*policy.height || !readable(city,ManagedCityDistrictsOffset+sizeof(void*),false)) return INT_MIN;
+#ifdef CE_AI_DISTRICT_SCORES_TEST
+    const auto lookup=test_district_at;
+#else
+    const auto lookup=Runtime::GetGameCoreGlobalAt<DistrictAtFn>(DistrictAtRva);
+#endif
+    if (!lookup) return INT_MIN;
+    const ManagedCoordinates xy{plot%policy.width,plot/policy.width};
+    const auto* district=lookup(city+ManagedCityDistrictsOffset,&xy);
+    if (!district) return -1;
+    if (!readable(district,DistrictTypeOffset+sizeof(int),false)) return INT_MIN;
+    const int type=read_field<int>(district,DistrictTypeOffset);
+    return type>=0 && type<policy.districts ? type : INT_MIN;
+}
 
 void managed_rejection(ManagedDistrictType& scope, const Entry& key, ManagedReason reason) {
     ++scope.failures;
     scope.lastCity = key.city; scope.lastPlot = key.plot;
     scope.lastReason = static_cast<int>(reason);
 }
-int* managed_cell(const DistrictMatrix& matrix, unsigned index, const Entry& key,
+int* managed_cell(void* object, const DistrictMatrix& matrix, unsigned index, const Entry& key,
     ManagedDistrictType& scope) {
     const auto* row = matrix.rows + index * PlotAnalysisRowSize;
     scope.lastCity = key.city; scope.lastPlot = key.plot;
     if (read_field<int16_t>(row, RowOwnerOffset) != key.player || read_field<int>(row, RowCityIdOffset) != key.city) {
         managed_rejection(scope, key, ManagedReason::WrongCity); return nullptr;
     }
-    if (row[RowHasDistrictOffset]) {
-        managed_rejection(scope, key, ManagedReason::ExistingDistrict); return nullptr;
+    const int footprint=managed_footprint_type(object,key.plot);
+    if (footprint>=0 || footprint==INT_MIN) {
+        managed_rejection(scope,key,footprint>=0 ? ManagedReason::ExistingDistrict : ManagedReason::FootprintUnavailable); return nullptr;
     }
     if (!row[RowDistrictEligibleOffset] || !(row[RowOwnedOffset] || row[RowFrontierOffset])) {
         managed_rejection(scope, key, ManagedReason::Ineligible); return nullptr;
@@ -69,7 +96,7 @@ void apply_managed_values(void* object, const Observation& o, ValuePhase phase, 
             if (x < 0 || y < 0 || x >= policy.width || y >= policy.height) continue;
             Entry key{o.key.player, o.key.city, scope.district, y * policy.width + x, 0};
             ++scope.considered;
-            auto* cell = managed_cell(matrix, i, key, scope);
+            auto* cell = managed_cell(object,matrix, i, key, scope);
             if (!cell) continue;
             if (*cell <= InvalidScore) { managed_rejection(scope, key, ManagedReason::NativeInvalid); continue; }
             const auto* entry = find_pair(key.player, key.city, key.district, key.plot);
@@ -109,7 +136,7 @@ public:
                 const int x = read_field<int>(row, RowXOffset), y = read_field<int>(row, RowYOffset);
                 if (x < 0 || y < 0 || x >= policy.width || y >= policy.height) continue;
                 Entry key{o.key.player, o.key.city, scope.district, y * policy.width + x, 0};
-                auto* cell = managed_cell(matrix, i, key, scope);
+                auto* cell = managed_cell(object,matrix, i, key, scope);
                 if (!cell) continue;
                 const auto* entry = find_pair(key.player, key.city, key.district, key.plot);
                 const bool acceptedPositive = entry && entry->finalReplacement && entry->expectedFinal > 0 && *cell == entry->expectedFinal;
@@ -200,7 +227,7 @@ bool __cdecl hook_request_update(void* contract, void* object) {
         for (unsigned i = 1; i < matrix.rowCount; ++i) {
             const auto* row = matrix.rows + i * PlotAnalysisRowSize;
             if (read_field<int>(row, RowXOffset) != x || read_field<int>(row, RowYOffset) != y) continue;
-            auto* cell = managed_cell(matrix, i, key, *scope);
+            auto* cell = managed_cell(object,matrix, i, key, *scope);
             if (!cell || *cell <= InvalidScore) return result;
             const auto* entry = find_pair(key.player, key.city, district, key.plot);
             desired = entry && entry->finalReplacement ? entry->expectedFinal : scope->fallbackQ8;

@@ -5,7 +5,6 @@
 constexpr uintptr_t CheckForDistrictRva = 0x3e0ee0;
 constexpr uintptr_t LookupPlayerRva = 0x44f00;
 constexpr uintptr_t EditMapRva = 0x44d40;
-constexpr uintptr_t DistrictAtRva = 0x11e520;
 constexpr uintptr_t CanZoneRva = 0x0f9d50;
 constexpr uintptr_t FindBehaviorTreeRva = 0x564020;
 constexpr uintptr_t CreateOneUseTreeRva = 0x563840;
@@ -23,7 +22,7 @@ constexpr size_t CityBuildPriorityOffset = 0x198, CityBuildDistrictTemplateOffse
 constexpr size_t CityBuildDistrictSlotOffset = 0x430, DistrictSlotTreeIdOffset = 8;
 constexpr size_t DistrictTemplateStringOffset = 0x10;
 constexpr size_t CityDistrictsOffset = 0xb58, CityBuildQueueOffset = 0x10d0;
-constexpr size_t DistrictTypeOffset = 0xf0, DistrictCompleteOffset = 0x3f8, DistrictPillagedOffset = 0x458;
+constexpr size_t DistrictCompleteOffset = 0x3f8, DistrictPillagedOffset = 0x458;
 constexpr size_t PlayerTreeManagerOffset = 0x6a8, PlayerControlManagerOffset = 0x6b0;
 constexpr size_t MapPlotLookupVtableOffset = 0x50;
 constexpr size_t ActiveTreeListOffset = 0x388, TreeListNextOffset = 0x10;

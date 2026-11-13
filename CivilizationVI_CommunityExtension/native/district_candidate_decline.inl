@@ -2,7 +2,7 @@
  *
  * ABI/layout scope is the already fingerprinted GetBestDistrict entry and
  * bounded CityBuild matrix in target_identity.h (XP2 reference324c51e9,
- * hotfix092abfbb matching text). No additional address, detour or Lua callback.
+ * hotfix092abfbb matching text). The shared physical-footprint getter also protects foundations; no additional detour or Lua callback.
  * GetBestDistrict reads scores/reservations without reallocating this matrix.
  * Restore every borrowed cell before cache readback or district preparation.
  *
@@ -75,6 +75,10 @@ public:
                     read_field<int16_t>(row, RowOwnerOffset) != scope.player ||
                     read_field<int>(row, RowCityIdOffset) != scope.city)
                     break;
+                // A decline published before foundation creation may outlive
+                // that transition until the next Lua packet. Preserve actual
+                // foundations/repairs, including unknown lookup failures.
+                if (managed_footprint_type(object,scope.plot)!=-1) break;
                 auto* rowScores = matrix.scores + index * policy.districts;
                 auto* cell = rowScores + scope.district;
                 if (read_field<int*>(row, RowDistrictScoresOffset) != rowScores ||

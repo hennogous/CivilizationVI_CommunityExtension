@@ -80,9 +80,15 @@ inline constexpr size_t RowYOffset = 0x0c;
 inline constexpr size_t RowDistrictScoresOffset = 0x20;
 // The referenced native reservation starts with a signed request ID.
 inline constexpr size_t RowReservationOffset = 0x48;
-// Plot evaluator 3e2aa0 copies Plot district-present state here. Existing
-// foundations/repair footprints are outside managed NEW-investment bids.
-inline constexpr size_t RowHasDistrictOffset = 0x50;
+// Evaluator3e2aa0 reads Plot+44 (improvement type), not a district here.
+// +51 is completed/unpillaged district only: neither flag can identify an
+// unfinished foundation or a repair. Use the actual district collection.
+inline constexpr size_t RowHasImprovementOffset = 0x50;
+inline constexpr size_t RowHasCompletedDistrictOffset = 0x51;
+// Already used by supplemental repair: CityDistricts::GetDistrictAt(xy).
+// The collection includes unfinished and pillaged objects. Return is borrowed.
+inline constexpr uintptr_t DistrictAtRva = 0x11e520;
+inline constexpr size_t DistrictTypeOffset = 0xf0;
 inline constexpr int UnreservedPlot = -1;
 inline constexpr size_t RowDistrictEligibleOffset = 0x55;
 inline constexpr size_t RowFrontierOffset = 0x57;

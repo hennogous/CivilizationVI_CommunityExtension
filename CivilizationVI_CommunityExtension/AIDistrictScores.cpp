@@ -360,6 +360,7 @@ ManagedDistrictType* find_managed(int player, int district) {
     }
     return nullptr;
 }
+int managed_footprint_type(void*, int); // Actual collection; defined in managed helper below.
 bool manages_player(int player) {
     if (player < 0 || player >= MaxPlayers || !policy.allowed[player]) return false;
     for (int i = 0; i < policy.managedCount; ++i)
@@ -458,7 +459,8 @@ void observe_cache(void* object, Observation o, TraceKind kind, int district, in
             const auto* reservation = read_field<const int*>(row, RowReservationOffset);
             const int id = readable(reservation, sizeof(int), false) ? *reservation : INT_MIN;
             int reason = Applied;
-            if (find_managed(o.key.player, district) && !row[RowHasDistrictOffset]) {
+            const bool existingDistrict=find_managed(o.key.player,district) && managed_footprint_type(object,plot)>=0;
+            if (find_managed(o.key.player, district) && !existingDistrict) {
                 const auto* entry = find_pair(o.key.player, o.key.city, district, plot);
                 if (!entry || !entry->finalReplacement || entry->expectedFinal <= 0) reason = ManagedMissingOffer;
                 else if (scores[district] != entry->expectedFinal) {
@@ -470,9 +472,9 @@ void observe_cache(void* object, Observation o, TraceKind kind, int district, in
             if (kind == Location && find_managed(o.key.player, district)) {
                 Entry key=o.key; key.district=district; key.plot=plot;
                 record_managed_trace(kind, key, scores[district], scores[district], id,
-                    ValuePhase::LocationSelection, reason, eligible, row[RowHasDistrictOffset] != 0);
+                    ValuePhase::LocationSelection, reason, eligible, existingDistrict);
             } else record_trace(kind, o.key, district, plot, scores[district], scores[district], reason, eligible,
-                id, static_cast<int>(kind == Best ? ValuePhase::JointSelection : ValuePhase::LocationSelection), row[RowHasDistrictOffset] != 0);
+                id, static_cast<int>(kind == Best ? ValuePhase::JointSelection : ValuePhase::LocationSelection), existingDistrict);
             return;
         }
         for (int j = 0; j < policy.count; j++) {
@@ -686,11 +688,15 @@ public:
             const int x = read_field<int>(row, RowXOffset);
             const int y = read_field<int>(row, RowYOffset);
             auto* eligible = row + RowDistrictEligibleOffset;
-            if (!*eligible || row[RowHasDistrictOffset] || !row[RowOwnedOffset] || x < 0 || y < 0 || x >= policy.width || y >= policy.height ||
+            if (!*eligible || !row[RowOwnedOffset] || x < 0 || y < 0 || x >= policy.width || y >= policy.height ||
                 read_field<int16_t>(row, RowOwnerOffset) != observation.key.player ||
                 read_field<int>(row, RowCityIdOffset) != observation.key.city)
                 continue;
             const int plot = y * policy.width + x;
+            // A supplier scope can precede a foundation in this packet. The
+            // actual district collection, not cached completion/improvement
+            // flags, determines whether this is still new land use.
+            if (managed_footprint_type(object,plot)!=-1) continue;
             if (std::any_of(first, last, [&](const SupplierExclusion& site) {
                 return sameCity(site) && site.plot == plot;
             }))
@@ -1384,6 +1390,7 @@ const unsigned char fingerprint_location[32] = {0x44, 0x88, 0x44, 0x24, 0x18, 0x
 const unsigned char fingerprint_request_update[32] = {0x40, 0x55, 0x56, 0x57, 0x48, 0x8b, 0xec, 0x48, 0x83, 0xec, 0x30, 0x83, 0xb9, 0x90, 0x01, 0x00, 0x00, 0xff, 0x48, 0x8b, 0xf2, 0x48, 0x89, 0x5c, 0x24, 0x58, 0x48, 0x8b, 0xf9, 0x0f, 0x84, 0x82};
 const unsigned char fingerprint_request_assignment[32] = {0x48, 0x89, 0x5c, 0x24, 0x18, 0x57, 0x48, 0x83, 0xec, 0x30, 0x48, 0x8d, 0x79, 0x10, 0x48, 0x8b, 0xda, 0x4c, 0x8b, 0xd1, 0x48, 0x3b, 0xfa, 0x0f, 0x84, 0xf7, 0x00, 0x00, 0x00, 0x48, 0x8b, 0x41};
 const unsigned char fingerprint_district_type_count[32] = {0x40, 0x53, 0x55, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec, 0x20, 0x4c, 0x8b, 0xf1, 0x45, 0x0f, 0xb6, 0xf9, 0x8b, 0xca, 0x45, 0x0f, 0xb6, 0xe0, 0x33, 0xdb, 0xe8, 0x2f, 0x19, 0x09};
+const unsigned char fingerprint_district_at[32] = {0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x6c, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57, 0x48, 0x83, 0xec, 0x20, 0x48, 0x8b, 0x01, 0x48, 0x8b, 0xf2, 0x48, 0x8b, 0xf9, 0x48, 0x63, 0x98};
 // Qualify all targets before CE's own registration hook changes the image.
 // The registration prefix is an identity guard, not an additional hook.
 bool install_hooks() {
@@ -1405,7 +1412,8 @@ bool install_hooks() {
         std::memcmp(base + DistrictLocationRva, fingerprint_location, sizeof fingerprint_location) ||
         std::memcmp(base + RequestUpdateRva, fingerprint_request_update, sizeof fingerprint_request_update) ||
         std::memcmp(base + AssignRequestValueRva, fingerprint_request_assignment, sizeof fingerprint_request_assignment) ||
-        std::memcmp(base + CountDistrictTypeRva, fingerprint_district_type_count, sizeof fingerprint_district_type_count))
+        std::memcmp(base + CountDistrictTypeRva, fingerprint_district_type_count, sizeof fingerprint_district_type_count) ||
+        std::memcmp(base + DistrictAtRva, fingerprint_district_at, sizeof fingerprint_district_at))
         return false;
 
     // Hooks and native originals are process-owned. Pin CE before installing

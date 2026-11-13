@@ -42,6 +42,7 @@ int __cdecl test_decline_best(void* object, int* coordinates) {
     const auto* reservation = read_field<const int*>(row, RowReservationOffset);
     // This fixture treats a non--1 reservation ID as manager-resolved. Ties
     // take the admitted branch deterministically; real selection randomizes.
+    if (!row[RowDistrictEligibleOffset] || !(row[RowOwnedOffset] || row[RowFrontierOffset])) return -1;
     const int threshold = *reservation == UnreservedPlot ? InvalidScore : reservation[1];
     int winner = -1, best = InvalidScore;
     for (int district : {8, 9}) {
@@ -61,6 +62,11 @@ int* __cdecl test_present(void* object, int* out, int district, void* plot) {
     return out;
 }
 int managedAssignmentCalls{}, managedExistingCount{};
+bool managedTestDistrictPresent{}, managedTestDistrictPillaged{};
+unsigned char managedTestDistrict[DistrictTypeOffset+sizeof(int)]{};
+unsigned char* __cdecl test_managed_district_at(void*,const ManagedCoordinates* xy) {
+    return managedTestDistrictPresent && xy->x==0 && xy->y==3 ? managedTestDistrict : nullptr;
+}
 bool managedRequestSuccess = true;
 int __cdecl test_managed_count(void*, int, bool, bool) { return managedExistingCount; }
 unsigned char managedTestPlot[PlotYOffset + sizeof(int16_t)]{};
@@ -73,7 +79,7 @@ int* __cdecl test_managed_present(void*, int* out, int, void* plot) {
 }
 void* __cdecl test_managed_location(void* object, int, unsigned char) {
     auto* row = read_field<unsigned char*>(static_cast<unsigned char*>(object), CityBuildRowsOffset) + PlotAnalysisRowSize;
-    if (row[RowHasDistrictOffset]) return managedTestPlot;
+    if (managedTestDistrictPresent) return managedTestDistrictPillaged ? managedTestPlot : nullptr;
     const auto* claim = read_field<const int*>(row, RowReservationOffset);
     if (*claim != UnreservedPlot) return nullptr; // Native location reader skips live claims.
     return row[RowDistrictEligibleOffset] && *cacheTestScore > InvalidScore ? managedTestPlot : nullptr;
@@ -140,6 +146,7 @@ void ownership_test_assignment(void* variable, const int* value) {
     put_field<int>(static_cast<unsigned char*>(variable), 0x10, *value);
 }
 int run_self_test() {
+    test_district_at=test_managed_district_at;managedTestDistrictPresent=managedTestDistrictPillaged=false;
     int n = 0, v, out = 0, xy[2], params[3];
 #define CHECK(c) do { n++; if(!(c)) { printf("district native test %d failed: %s\n",n,#c);return -n; } } while(0)
     CHECK(adjusted(1000, 256, &v) && v == 1256);
@@ -751,9 +758,11 @@ int run_self_test() {
     // cache rebuild before selection and sticky request priority. These read
     // the actual matrix in a selector stub; they do not claim a live-game ABI.
     reset_policy(); hooks_ready = true; test_bump_epoch = false;
+    test_district_at=test_managed_district_at;managedTestDistrictPresent=managedTestDistrictPillaged=false;
+    put_field(managedTestDistrict,DistrictTypeOffset,8);
     put_field(city, CityOwnerOffset, 1); put_field(city, CityIdOffset, 7);
     put_field(lateRow, RowOwnerOffset, static_cast<int16_t>(1)); put_field(lateRow, RowCityIdOffset, 7);
-    lateRow[RowDistrictEligibleOffset] = lateRow[RowOwnedOffset] = 1; lateRow[RowHasDistrictOffset] = 0;
+    lateRow[RowDistrictEligibleOffset] = lateRow[RowOwnedOffset] = 1; managedTestDistrictPresent=false;
     put_field(lateRow, RowDistrictScoresOffset, matrix + 10);
     int managedClaim[]{17, 163 * Q8Units, 99}; put_field(lateRow, RowReservationOffset, managedClaim);
     cacheTestScore = &matrix[18]; cacheTestFinal = 444512; original_cache = test_cache;
@@ -787,11 +796,11 @@ int run_self_test() {
     managedClaim[0] = UnreservedPlot; matrix[19] = InvalidScore; *cacheTestScore = 900000;
     CHECK(hook_best(object, managedCoordinates) == -1);
     CHECK(*cacheTestScore == -1024 * Q8Units); // Transient admission mask restored.
-    lateRow[RowHasDistrictOffset] = 1; *cacheTestScore = 765432;
+    managedTestDistrictPresent=true; *cacheTestScore = 765432;
     { const auto o = observe_enter(object); std::unique_lock guard(policyMutex); apply_managed_values(object, o, ValuePhase::Aggregation); }
     CHECK(*cacheTestScore == 765432);
     // Existing foundations/repair footprints retain native value and eligibility.
-    lateRow[RowHasDistrictOffset] = 0;
+    managedTestDistrictPresent=false;
     finalEntry[4] = 90000;
     ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_managed_type(asLua(managedArgs)); l_final_entry(asLua(finalEntry)); l_commit(nullptr);
     original_present = test_managed_present; original_request_update = test_managed_request;
@@ -819,11 +828,11 @@ int run_self_test() {
     put_field(managedRequest, RequestDistrictOffset, -1); put_field(managedRequest, RequestValueOffset, 777777);
     CHECK(hook_request_update(managedRequest, object) == 1 && read_field<int>(managedRequest, RequestValueOffset) == 777777);
     CHECK(managedAssignmentCalls == 1); // Non-district requests untouched.
-    put_field(managedRequest, RequestDistrictOffset, 8); lateRow[RowHasDistrictOffset] = 1;
+    put_field(managedRequest, RequestDistrictOffset, 8); managedTestDistrictPresent=true;
     *cacheTestScore = 888888; put_field(managedRequest, RequestValueOffset, 777777);
     CHECK(hook_request_update(managedRequest, object) == 1 && read_field<int>(managedRequest, RequestValueOffset) == 888888);
     CHECK(managedAssignmentCalls == 1); // Existing construction/repair is native.
-    lateRow[RowHasDistrictOffset] = 0; test_bump_epoch = true; put_field(managedRequest, RequestValueOffset, 999999);
+    managedTestDistrictPresent=false; test_bump_epoch = true; put_field(managedRequest, RequestValueOffset, 999999);
     CHECK(hook_request_update(managedRequest, object) == 1 && read_field<int>(managedRequest, RequestValueOffset) == 999999);
     CHECK(managedAssignmentCalls == 1); test_bump_epoch = false;
     ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_managed_type(asLua(managedArgs)); l_commit(nullptr);
@@ -858,9 +867,34 @@ int run_self_test() {
     ++begin[0];l_begin(asLua(begin));l_allow(asLua(allow));l_managed_type(asLua(managedArgs));l_final_entry(asLua(finalEntry));l_commit(nullptr);
     policy.exclusionCount=1;policy.exclusions[0]={1,7,30}; *cacheTestScore=900000;
     CHECK(hook_location(object,8,0)==nullptr && lateRow[RowDistrictEligibleOffset]==1);
-    lateRow[RowHasDistrictOffset]=1;
+    managedTestDistrictPresent=managedTestDistrictPillaged=true;
     CHECK(hook_location(object,8,0)==managedTestPlot);
-    lateRow[RowHasDistrictOffset]=0;policy.exclusionCount=0;
+    managedTestDistrictPresent=false;policy.exclusionCount=0;
+    // Independent physical state: +50 is an improvement, never an existing
+    // district. Its removal must not change foundation/repair exemption.
+    lateRow[RowHasImprovementOffset]=1;lateRow[RowHasCompletedDistrictOffset]=0;
+    *cacheTestScore=900000;managedTestDistrictPresent=false;
+    CHECK(hook_present(object,&managedValue,8,nullptr)==&managedValue && managedValue==90000);
+    managedTestDistrictPresent=true;managedTestDistrictPillaged=false;*cacheTestScore=765432;
+    CHECK(hook_present(object,&managedValue,8,nullptr)==&managedValue && managedValue==765432);
+    lateRow[RowHasImprovementOffset]=0;*cacheTestScore=765432;
+    CHECK(hook_present(object,&managedValue,8,nullptr)==&managedValue && managedValue==765432);
+    managedTestDistrictPillaged=true;*cacheTestScore=654321;
+    CHECK(hook_present(object,&managedValue,8,nullptr)==&managedValue && managedValue==654321);
+    CHECK(hook_location(object,8,0)==managedTestPlot);
+    managedTestDistrictPresent=false;lateRow[RowHasCompletedDistrictOffset]=1;*cacheTestScore=900000;
+    CHECK(hook_present(object,&managedValue,8,nullptr)==&managedValue && managedValue==90000);
+    lateRow[RowHasCompletedDistrictOffset]=0;
+    // Stale protection scopes published before foundation creation cannot
+    // suppress continuation. An improved empty plot remains protected.
+    policy.exclusionCount=1;policy.exclusions[0]={1,7,30};
+    policy.declineCount=1;policy.declines[0]={1,7,8,30};
+    managedTestDistrictPresent=true;managedTestDistrictPillaged=false;
+    *cacheTestScore=888888;matrix[19]=InvalidScore;
+    CHECK(hook_best(object,managedCoordinates)==8 && *cacheTestScore==888888 && lateRow[RowDistrictEligibleOffset]==1);
+    managedTestDistrictPresent=false;lateRow[RowHasImprovementOffset]=1;
+    CHECK(hook_best(object,managedCoordinates)==-1 && lateRow[RowDistrictEligibleOffset]==1);
+    lateRow[RowHasImprovementOffset]=0;policy.exclusionCount=policy.declineCount=0;
     // More repeated consumer writes than the legacy4096-write and16384-trace
     // caps must still land. Optional samples drop, counters keep incrementing,
     // and core Best comparisons retain their reserved journal capacity.
@@ -868,7 +902,7 @@ int run_self_test() {
         *cacheTestScore=900000; hook_present(object,&managedValue,8,nullptr);
     }
     CHECK(enabled && faults==0 && changed==0 && managed_writes>=20000);
-    CHECK(*cacheTestScore==90000 && managed_trace_dropped>0 && trace_count<=MaxManagedTraceRecords);
+    CHECK(*cacheTestScore==90000 && managed_trace_dropped>0 && managed_trace_records<=MaxManagedTraceRecords && trace_count<ManagedCoreTraceReserve);
     matrix[19]=100000;
     CHECK(hook_best(object,managedCoordinates)==9 && enabled && faults==0);
     CHECK(trace_records[trace_count-1].kind==Best);
