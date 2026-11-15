@@ -52,16 +52,16 @@ bool quote_objects(int owner, int cityId, const unsigned char*& player, const un
 }
 
 bool quote_times(int ready, int horizon, int discount) {
-    // The initial public bound covers the existing50-turn district window.
+    // The bound covers ordinary native horizons through Marathon (300 turns).
     // Keep intermediate native fixed-point products bounded; this is not an
     // invitation to price an arbitrary thousand-turn income or encoding maximum.
-    return ready >= 0 && ready < horizon && horizon <= 100 && discount > 0 && discount <= 64 * Q8Units;
+    return ready >= 0 && ready < horizon && horizon <= 300 && discount > 0 && discount <= 64 * Q8Units;
 }
 
 int l_economy_status(lua_State* L) {
     char output[256];
     snprintf(output,sizeof output,
-        "{\"abi\":1,\"finalReady\":%d,\"pricingReady\":%d,\"minFinalQ8\":%d,\"maxFinalQ8\":%d,\"maxHorizon\":100}",
+        "{\"abi\":1,\"finalReady\":%d,\"pricingReady\":%d,\"minFinalQ8\":%d,\"maxFinalQ8\":%d,\"maxHorizon\":300}",
         static_cast<int>(hooks_ready),static_cast<int>(economy_pricing_ready),MinimumScore,MaxDelta);
     push_json(L,output,std::strlen(output));
     return 1;
@@ -100,7 +100,7 @@ int l_yield_fixed_value(lua_State* L) {
     const int amount=hks::checkinteger(L,4),at=hks::checkinteger(L,5),discount=hks::checkinteger(L,6);
     const unsigned char *player{}, *city{};
     if (yield<0 || yield>=128 || amount < -4096*Q8Units || amount > 4096*Q8Units ||
-        at<0 || at>100 || discount<=0 || discount>64*Q8Units || !quote_objects(owner,cityId,player,city))
+        at<0 || at>300 || discount<=0 || discount>64*Q8Units || !quote_objects(owner,cityId,player,city))
         return 0;
     const auto* definitions=Runtime::GetGameCoreGlobalAt<DefinitionsFn>(YieldDefinitionsRva)();
     if (!readable(definitions,2*sizeof(uintptr_t),false) || definitions[1]<definitions[0] ||

@@ -911,7 +911,7 @@ int run_self_test() {
     ++begin[0]; l_begin(asLua(begin)); l_allow(asLua(allow)); l_managed_type(asLua(managedArgs)); l_managed_type(asLua(managedArgs));
     CHECK(test_integer == 0 && !staging_valid);
     reset_policy(); CHECK(policy.managedCount == 0); cacheTestScore = nullptr;
-    CHECK(quote_times(0, 50, 1024) && !quote_times(50, 50, 1024) && !quote_times(0, 101, 1024));
+    CHECK(quote_times(0, 50, 1024) && !quote_times(50, 50, 1024) && quote_times(0, 300, 1024) && !quote_times(0, 301, 1024));
     economy_pricing_ready = false;
     int quoteArgs[]{1,7,0,256,0,50,1024};
     CHECK(l_yield_stream_value(asLua(quoteArgs)) == 0);

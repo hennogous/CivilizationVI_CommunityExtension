@@ -1039,6 +1039,7 @@ int l_wonder_status(lua_State* L) {
 }
 
 #include "native/economy_pricing.inl"
+#include "native/native_site_pricing.inl"
 
 int l_final_entry(lua_State* L) {
     const Entry entry{hks::checkinteger(L, 1), hks::checkinteger(L, 2), hks::checkinteger(L, 3),
@@ -1492,6 +1493,7 @@ bool Create() {
     // Pricing is optional; retain the qualified district/protection interfaces
     // when any read-only helper differs from this exact target.
     economy_pricing_ready = hooks_ready && qualify_economy_pricing();
+    site_pricing_ready = economy_pricing_ready && qualify_site_pricing();
     // The Builder boundary is optional. An unsupported prefix must not
     // disable the already qualified district interface.
     builder_ready = hooks_ready && install_builder_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
@@ -1519,6 +1521,8 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
     PushLuaMethod(L, l_final_entry, "CE_AIDistrictScoresFinalEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresFinalEntry");
     PushLuaMethod(L, l_economy_status, "CE_AIEconomyStatus", hks::LUA_GLOBAL, "CE_AIEconomyStatus");
+    PushLuaMethod(L, l_evaluation_context, "CE_AIEvaluationContext", hks::LUA_GLOBAL, "CE_AIEvaluationContext");
+    PushLuaMethod(L, l_district_site_adjustment, "CE_AIDistrictSiteAdjustment", hks::LUA_GLOBAL, "CE_AIDistrictSiteAdjustment");
     PushLuaMethod(L, l_yield_stream_value, "CE_AIYieldStreamValue", hks::LUA_GLOBAL, "CE_AIYieldStreamValue");
     PushLuaMethod(L, l_yield_fixed_value, "CE_AIYieldFixedValue", hks::LUA_GLOBAL, "CE_AIYieldFixedValue");
     PushLuaMethod(L, l_amenity_stream_value, "CE_AIAmenityStreamValue", hks::LUA_GLOBAL, "CE_AIAmenityStreamValue");

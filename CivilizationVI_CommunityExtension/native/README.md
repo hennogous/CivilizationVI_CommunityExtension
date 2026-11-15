@@ -663,3 +663,44 @@ The mod owns the semantic reason for declining a site and must withdraw it
 when live facts improve. The API cannot verify supply potential or benefit.
 It does not cancel a retained tree, invalidate a permanent cache, choose a
 different district or alter later competition with ordinary production.
+
+
+## Read-only native site accounting and evaluation context (15 November)
+
+CE_AIEvaluationContext() returns ordinaryHorizon, wonderHorizon, discountQ8
+and maxHorizon as JSON, or no result when initialized context is unavailable.
+It reads the same GlobalAI horizon entry and discount as ordinary valuation.
+Online is50/1024Q8; quote bounds now support ordinary horizons through300.
+
+CE_AIDistrictSiteAdjustment(player,city,district,x,y,ready,horizon,discountQ8)
+returns netQ8, intrinsicQ8, adjustmentQ8 and includesPurchase. The adjustment
+is native NetValue minus intrinsic district Value, before future-building
+aggregation or district-preference scaling. A caller pricing its own district
+income retains native purchase/harvest/improvement/resource-copy accounting.
+A frontier residual includes its native purchase quote: do not add a second
+Gold invoice. These are valuation quotes, not payment receipts.
+
+The original NetValue trampoline is called directly, followed by intrinsic
+Value into a private24-byte zero-initialized Types::Vector<AiMapChange>.
+The output is hypothetical analysis, never placement. Its allocation is freed
+through GameCore's own _aligned_free import with RAII. No cache, reservation,
+queue or world object is written, no entry staged and no pointer retained.
+There are no new hooks or raw MinHook calls.
+
+Only matching player/city, valid district, bounded coordinates/times and empty
+owned/frontier footprints qualify. Existing foundations/repairs remain on
+their separate routes. NetValue zero/invalid short-circuits, bad objects,
+unsupported binary/prefix/import or unready globals return no result. This
+is not a complete CanZone/CanProduce query. Use the existing gameplay
+publication/inactive boundary and cache only within that boundary.
+
+native/native_site_pricing.inl names RVAs, GlobalAI fields, allocator and ABI.
+Supported XP2 SHA092abfbb2176f8df04b5212f819dc269dd83aea866ff05aaf489904a1ff7c41f
+matches reference324c51e9 .text. Existing image validation plus new helper
+fingerprints qualify these calls. The supported MSVC build and normal
+HavokScript registration/lifecycle are retained; CE contains no CSC economics.
+
+Shared-controller Online25 qualification,15 November: real context50/1024,
+six captured real-map ledgers reconcile economic/bid totals and native cost
+residuals; invalid inputs return nil. Exit0 and preference restoration pass.
+Artifacts: Desktop/Codex/csc-ai-native-valuation-20261115/fresh25-01.
