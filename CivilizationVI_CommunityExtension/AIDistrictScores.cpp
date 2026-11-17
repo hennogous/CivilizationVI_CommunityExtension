@@ -1520,6 +1520,7 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_wonder_status, "CE_AISupplierWonderProtectionStatus", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStatus");
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
     PushLuaMethod(L, l_final_entry, "CE_AIDistrictScoresFinalEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresFinalEntry");
+    PushLuaMethod(L, l_profile_clock, "CE_AIMonotonicSeconds", hks::LUA_GLOBAL, "CE_AIMonotonicSeconds");
     PushLuaMethod(L, l_economy_status, "CE_AIEconomyStatus", hks::LUA_GLOBAL, "CE_AIEconomyStatus");
     PushLuaMethod(L, l_evaluation_context, "CE_AIEvaluationContext", hks::LUA_GLOBAL, "CE_AIEvaluationContext");
     PushLuaMethod(L, l_district_site_adjustment, "CE_AIDistrictSiteAdjustment", hks::LUA_GLOBAL, "CE_AIDistrictSiteAdjustment");

@@ -2,6 +2,8 @@
  * stub originals exercise contracts without loading Civ. They cannot validate
  * real ABI/worker timing, HKS lifetime, mod coexistence or context destruction. */
 int test_base, test_bump_epoch, test_integer;
+double test_clock_number{};
+void __cdecl test_profile_number(lua_State*, double value) { test_clock_number = value; }
 char test_json[32768], test_previous[32768];
 int test_stack_checks, test_concat_fault;
 int* __cdecl test_net(int* out, unsigned d, int* t, int r, int h, void *p, void *c) {
@@ -921,6 +923,12 @@ int run_self_test() {
     CHECK(checked_economy_quote(255,0,256,true,intervalQuote) && intervalQuote==255);
     CHECK(!checked_economy_quote(INT_MAX,INT_MAX,256,true,intervalQuote));
     CHECK(checked_economy_quote(-256,128,1,false,intervalQuote) && intervalQuote==-128);
+    const auto savedPushNumber = hks::pushnumber;
+    hks::pushnumber = test_profile_number;
+    CHECK(l_profile_clock(nullptr) == 1 && test_clock_number >= 0.0);
+    const double firstClock = test_clock_number;
+    CHECK(l_profile_clock(nullptr) == 1 && test_clock_number >= firstClock);
+    hks::pushnumber = savedPushNumber;
     economy_pricing_ready = false;
     int quoteArgs[]{1,7,0,256,0,50,1024};
     CHECK(l_yield_stream_value(asLua(quoteArgs)) == 0);

@@ -1,5 +1,18 @@
 # Experimental district-site score API
 
+`CE_AIMonotonicSeconds()` returns read-only fractional seconds from a local
+`std::chrono::steady_clock` origin. Subtract readings around a synchronous Lua
+policy pass to measure elapsed wall time, including native pricing/UI calls.
+It takes no game object or address and changes no decision state. Its origin
+has no relationship to turns, economic discounts or process CPU time; callers
+must treat an absent binding as unavailable measurement rather than zero cost.
+CSC records whole-publication and per-player envelopes, then separately reads
+CE's existing per-packet managed-cell refresh counter before replacement and
+at the final observation boundary. Per-player spans partition the publication
+and must not be added a second time. Repeated native counter samples for the
+same version are cumulative; retain their maximum.
+
+
 ## Explicit recurring intervals — 17 November
 
 `CE_AIYieldIntervalValue(player,city,yield,amountQ8,ready,horizon,discountQ8)`

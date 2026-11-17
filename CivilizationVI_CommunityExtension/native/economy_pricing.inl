@@ -58,6 +58,18 @@ bool quote_times(int ready, int horizon, int discount) {
     return ready >= 0 && ready < horizon && horizon <= 300 && discount > 0 && discount <= 64 * Q8Units;
 }
 
+// Read-only profiling clock. Relative steady-clock seconds measure the whole
+// caller's synchronous policy pass, including native quote/UI calls. This is
+// wall time, not game turns, CPU time or an economic discount parameter. A local
+// origin preserves sub-millisecond precision over ordinary game sessions; no
+// GameCore address, borrowed object or worker callback is involved.
+int l_profile_clock(lua_State* L) {
+    using Clock = std::chrono::steady_clock;
+    static const auto origin = Clock::now();
+    hks::pushnumber(L, std::chrono::duration<double>(Clock::now() - origin).count());
+    return 1;
+}
+
 int l_economy_status(lua_State* L) {
     char output[256];
     snprintf(output,sizeof output,
