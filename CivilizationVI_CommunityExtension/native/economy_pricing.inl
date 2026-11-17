@@ -67,7 +67,21 @@ int l_economy_status(lua_State* L) {
     return 1;
 }
 
-int l_yield_stream_value(lua_State* L) {
+// Native cumulative income returns the input at t=0, but a recurring interval
+// needs a zero cumulative origin. Correct before range/sign validation: the raw
+// native 0..1 difference can be negative even for positive income. Use a wide
+// intermediate so adding the origin cannot wrap an invalid quote into range.
+// Raw Stream bindings keep their original semantics for existing callers.
+bool checked_economy_quote(int nativeValue, int origin, int amount, bool yieldSign, int& result) {
+    const auto corrected = static_cast<int64_t>(nativeValue) + origin;
+    if (corrected < -MaxScore || corrected > MaxScore ||
+        (yieldSign && ((amount >= 0 && corrected < 0) || (amount <= 0 && corrected > 0))))
+        return false;
+    result = static_cast<int>(corrected);
+    return true;
+}
+
+int yield_stream_value(lua_State* L, bool interval) {
     const int owner=hks::checkinteger(L,1), cityId=hks::checkinteger(L,2);
     const int yield=hks::checkinteger(L,3), amount=hks::checkinteger(L,4);
     const int ready=hks::checkinteger(L,5), horizon=hks::checkinteger(L,6), discount=hks::checkinteger(L,7);
@@ -86,12 +100,15 @@ int l_yield_stream_value(lua_State* L) {
         return 0;
     returned=Runtime::GetGameCoreGlobalAt<TimedIncomeFn>(DiscountTimedIncomeRva)(
         &value,&normalized,&rate,ready,horizon);
-    if (returned!=&value || value < -MaxScore || value > MaxScore ||
-        (amount>=0 && value<0) || (amount<=0 && value>0))
+    if (returned!=&value || !checked_economy_quote(value,
+        interval && ready == 0 ? normalized : 0, amount, true, value))
         return 0;
     hks::pushinteger(L,value);
     return 1;
 }
+
+int l_yield_stream_value(lua_State* L) { return yield_stream_value(L, false); }
+int l_yield_interval_value(lua_State* L) { return yield_stream_value(L, true); }
 
 // Same native helper's equal-time branch is a discounted fixed amount. This
 // prices an actual land invoice once, rather than amortizing it as fake upkeep.
@@ -118,7 +135,7 @@ int l_yield_fixed_value(lua_State* L) {
     return 1;
 }
 
-int l_amenity_stream_value(lua_State* L) {
+int amenity_stream_value(lua_State* L, bool interval) {
     const int owner=hks::checkinteger(L,1), cityId=hks::checkinteger(L,2), amount=hks::checkinteger(L,3);
     const int ready=hks::checkinteger(L,4), horizon=hks::checkinteger(L,5), discount=hks::checkinteger(L,6);
     const unsigned char *player{}, *city{};
@@ -128,8 +145,25 @@ int l_amenity_stream_value(lua_State* L) {
     int rate=discount,value{};
     const auto* returned=Runtime::GetGameCoreGlobalAt<AmenityIncomeFn>(AmenityIncomeValueRva)(
         &value,player,city,amount,&rate,ready,horizon);
-    if (returned!=&value || value < -MaxScore || value > MaxScore)
+    if (returned!=&value)
+        return 0;
+    int origin{};
+    if (interval && ready == 0) {
+        // Amenity utility is nonlinear around city happiness thresholds. The
+        // equal-time branch quotes this same city/count's current scalar; it
+        // must never be replaced with count times a one-amenity price. Reset
+        // rate because the native ABI borrows a mutable fixed-point pointer.
+        rate=discount;
+        if (Runtime::GetGameCoreGlobalAt<AmenityIncomeFn>(AmenityIncomeValueRva)(
+            &origin,player,city,amount,&rate,0,0)!=&origin)
+            return 0;
+    }
+    // Native threshold utility supplies the sign; count alone cannot validate it.
+    if (!checked_economy_quote(value,origin,amount,false,value))
         return 0;
     hks::pushinteger(L,value);
     return 1;
 }
+
+int l_amenity_stream_value(lua_State* L) { return amenity_stream_value(L, false); }
+int l_amenity_interval_value(lua_State* L) { return amenity_stream_value(L, true); }

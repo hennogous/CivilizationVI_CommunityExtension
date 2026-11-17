@@ -1524,6 +1524,8 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_evaluation_context, "CE_AIEvaluationContext", hks::LUA_GLOBAL, "CE_AIEvaluationContext");
     PushLuaMethod(L, l_district_site_adjustment, "CE_AIDistrictSiteAdjustment", hks::LUA_GLOBAL, "CE_AIDistrictSiteAdjustment");
     PushLuaMethod(L, l_yield_stream_value, "CE_AIYieldStreamValue", hks::LUA_GLOBAL, "CE_AIYieldStreamValue");
+    PushLuaMethod(L, l_yield_interval_value, "CE_AIYieldIntervalValue", hks::LUA_GLOBAL, "CE_AIYieldIntervalValue");
+    PushLuaMethod(L, l_amenity_interval_value, "CE_AIAmenityIntervalValue", hks::LUA_GLOBAL, "CE_AIAmenityIntervalValue");
     PushLuaMethod(L, l_yield_fixed_value, "CE_AIYieldFixedValue", hks::LUA_GLOBAL, "CE_AIYieldFixedValue");
     PushLuaMethod(L, l_amenity_stream_value, "CE_AIAmenityStreamValue", hks::LUA_GLOBAL, "CE_AIAmenityStreamValue");
     PushLuaMethod(L, l_nomination_bid, "CE_AIBuildingNominationBid", hks::LUA_GLOBAL, "CE_AIBuildingNominationBid");

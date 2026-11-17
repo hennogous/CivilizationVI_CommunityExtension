@@ -912,6 +912,15 @@ int run_self_test() {
     CHECK(test_integer == 0 && !staging_valid);
     reset_policy(); CHECK(policy.managedCount == 0); cacheTestScore = nullptr;
     CHECK(quote_times(0, 50, 1024) && !quote_times(50, 50, 1024) && quote_times(0, 300, 1024) && !quote_times(0, 301, 1024));
+    // Pricing transport: correction precedes sign/range validation, preserves
+    // raw-stream behavior, and cannot overflow through the accepted score band.
+    int intervalQuote{};
+    CHECK(checked_economy_quote(-1,256,256,true,intervalQuote) && intervalQuote==255);
+    CHECK(checked_economy_quote(1,-256,-256,true,intervalQuote) && intervalQuote==-255);
+    CHECK(!checked_economy_quote(-1,0,256,true,intervalQuote));
+    CHECK(checked_economy_quote(255,0,256,true,intervalQuote) && intervalQuote==255);
+    CHECK(!checked_economy_quote(INT_MAX,INT_MAX,256,true,intervalQuote));
+    CHECK(checked_economy_quote(-256,128,1,false,intervalQuote) && intervalQuote==-128);
     economy_pricing_ready = false;
     int quoteArgs[]{1,7,0,256,0,50,1024};
     CHECK(l_yield_stream_value(asLua(quoteArgs)) == 0);
