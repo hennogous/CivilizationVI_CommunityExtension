@@ -1,5 +1,29 @@
 # Experimental district-site score API
 
+## Explicit recurring intervals — 17 November
+
+`CE_AIYieldIntervalValue(player,city,yield,amountQ8,ready,horizon,discountQ8)`
+and `CE_AIAmenityIntervalValue(player,city,count,ready,horizon,discountQ8)`
+share the Stream APIs' arguments, readiness and bounds (current maximum horizon
+300). They return signed Q8 utility, or no Lua value when unavailable. Existing
+Stream and fixed-amount bindings retain their behavior.
+
+Native cumulative helper528310 returns the input at t=0;528660 subtracts that
+origin for unequal times. A recurring interval requires cumulative0=0. When
+ready=0, add normalized yield, or the same city/count's native amenity quote
+at(0,0), before range/sign checks. Use int64 for the addition. Amenity utility
+is nonlinear: never use count times price(1), or infer its sign from count.
+Positive-start intervals keep the native result. Every zero-start interval
+increases by one normalized current period relative to the old Stream API.
+
+Ghidra reference SHA324c51e9, runtime SHA092abfbb; relevant text identical.
+Astra reviewed the trace and implementation. Supported VS2022 Release build,
+249 native checks,4 Runtime failure/cleanup cases and instruction restoration
+pass. A shared-controller replay qualifies15 real pricing cases,8/8 joint
+customer quotes and unchanged10,954 gameplay rows; exit0/restored. Routine
+customer residual delivery is separate. No upstream PR.
+
+
 ## Managed investment delivery candidate - 13 November
 
 Branch `codex/quarter-value-delivery`, built against Windows Steam XP2 SHA256
