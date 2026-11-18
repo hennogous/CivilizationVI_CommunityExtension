@@ -932,6 +932,8 @@ int run_self_test() {
     economy_pricing_ready = false;
     int quoteArgs[]{1,7,0,256,0,50,1024};
     CHECK(l_yield_stream_value(asLua(quoteArgs)) == 0);
+    CHECK(l_pseudo_yield_interval_value(asLua(quoteArgs)) == 0);
+    CHECK(l_growth_interval_value(asLua(quoteArgs)) == 0);
     CHECK(l_yield_fixed_value(asLua(quoteArgs)) == 0);
     cacheTestScore = nullptr; reset_policy();
 

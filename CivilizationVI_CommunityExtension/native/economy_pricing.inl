@@ -11,6 +11,7 @@ using NormalizeYieldFn = int* (__cdecl *)(int*, int*, unsigned, const void*);
 using TimedIncomeFn = int* (__cdecl *)(int*, int*, int*, int, int);
 using AmenityIncomeFn = int* (__cdecl *)(int*, const void*, const void*, int, int*, int, int);
 bool economy_pricing_ready{};
+bool qualify_service_pricing();
 
 bool qualify_economy_pricing() {
     struct Prefix { uintptr_t rva; std::array<unsigned char, 16> bytes; };
@@ -73,8 +74,8 @@ int l_profile_clock(lua_State* L) {
 int l_economy_status(lua_State* L) {
     char output[256];
     snprintf(output,sizeof output,
-        "{\"abi\":1,\"finalReady\":%d,\"pricingReady\":%d,\"minFinalQ8\":%d,\"maxFinalQ8\":%d,\"maxHorizon\":300}",
-        static_cast<int>(hooks_ready),static_cast<int>(economy_pricing_ready),MinimumScore,MaxDelta);
+        "{\"abi\":1,\"finalReady\":%d,\"pricingReady\":%d,\"minFinalQ8\":%d,\"maxFinalQ8\":%d,\"maxHorizon\":300,\"servicePricingReady\":%d}",
+        static_cast<int>(hooks_ready),static_cast<int>(economy_pricing_ready),MinimumScore,MaxDelta,static_cast<int>(hooks_ready && economy_pricing_ready && qualify_service_pricing()));
     push_json(L,output,std::strlen(output));
     return 1;
 }
@@ -179,3 +180,83 @@ int amenity_stream_value(lua_State* L, bool interval) {
 
 int l_amenity_stream_value(lua_State* L) { return amenity_stream_value(L, false); }
 int l_amenity_interval_value(lua_State* L) { return amenity_stream_value(L, true); }
+
+// Service quotes deliberately bypass the modifier attachment interpreter. Lua
+// supplies eligibility/recipients; these calls only price an admitted effect.
+// XP2 reference324c51e9 and supported092abfbb have identical .text SHA256
+// d5bc8feddb8c030dbf2afc3fa9d9110eadbdb349cdb8aa56d5928625290c3d79.
+namespace ServicePricingLayout {
+constexpr uintptr_t NormalizePseudoYieldRva = 0x52af40;
+constexpr uintptr_t PseudoYieldDefinitionsRva = 0x7d1480;
+constexpr uintptr_t FoodSurplusRva = 0x124060;
+constexpr uintptr_t FoodYieldIndexRva = 0xb8f648;
+constexpr size_t CityGrowthOffset = 0x970;
+}
+using NormalizePseudoFn = int* (__cdecl *)(int*, int*, unsigned, const void*, int);
+using FoodSurplusFn = int* (__cdecl *)(const void*, int*);
+
+bool qualify_service_pricing() {
+    // Reuse CE's image/SHA qualification. Check every newly called entry too;
+    // an unavailable optional Service consumer must not disable ordinary quotes.
+    struct Prefix { uintptr_t rva; std::array<unsigned char,16> bytes; };
+    const Prefix expected[]{
+        {ServicePricingLayout::NormalizePseudoYieldRva,{0x48,0x89,0x6c,0x24,0x20,0x56,0x41,0x56,0x41,0x57,0x48,0x83,0xec,0x40,0x41,0x8b}},
+        {ServicePricingLayout::PseudoYieldDefinitionsRva,{0x48,0x83,0xec,0x28,0xe8,0x47,0x39,0x87,0xff,0x48,0x05,0x80,0x1f,0x00,0x00,0x48}},
+        {ServicePricingLayout::FoodSurplusRva,{0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x48,0x83,0xec,0x20,0x48}},
+    };
+    for (const auto& item : expected) {
+        const auto* entry = Runtime::GetGameCoreGlobalAt<const unsigned char*>(item.rva);
+        if (!readable(entry,item.bytes.size(),false) || std::memcmp(entry,item.bytes.data(),item.bytes.size())) return false;
+    }
+    return economy_pricing_ready;
+}
+
+int l_pseudo_yield_interval_value(lua_State* L) {
+    // Same seven arguments and Q8 amount/result as CE_AIYieldIntervalValue.
+    // The pseudo-yield ID comes from loaded definitions (GPP class/Tourism),
+    // never a numeric enum baked into a mod. Player strategy/diplomacy applies
+    // exactly once. The final -1 is native's unspecified diplomatic target.
+    const int owner=hks::checkinteger(L,1),cityId=hks::checkinteger(L,2);
+    const int kind=hks::checkinteger(L,3),amount=hks::checkinteger(L,4);
+    const int ready=hks::checkinteger(L,5),horizon=hks::checkinteger(L,6),discount=hks::checkinteger(L,7);
+    const unsigned char *player{},*city{};
+    if (kind<0 || kind>=1024 || amount < -128*Q8Units || amount > 128*Q8Units ||
+        !quote_times(ready,horizon,discount) || !quote_objects(owner,cityId,player,city) || !qualify_service_pricing()) return 0;
+    const auto* definitions=Runtime::GetGameCoreGlobalAt<DefinitionsFn>(ServicePricingLayout::PseudoYieldDefinitionsRva)();
+    if (!readable(definitions,2*sizeof(uintptr_t),false) || definitions[1]<definitions[0] ||
+        static_cast<uintptr_t>(kind)>=(definitions[1]-definitions[0])/sizeof(void*)) return 0;
+    int input=amount,normalized{},rate=discount,value{};
+    if (Runtime::GetGameCoreGlobalAt<NormalizePseudoFn>(ServicePricingLayout::NormalizePseudoYieldRva)(
+        &normalized,&input,static_cast<unsigned>(kind),player,-1)!=&normalized) return 0;
+    if (Runtime::GetGameCoreGlobalAt<TimedIncomeFn>(DiscountTimedIncomeRva)(
+        &value,&normalized,&rate,ready,horizon)!=&value ||
+        !checked_economy_quote(value,ready==0?normalized:0,amount,false,value)) return 0;
+    hks::pushinteger(L,value);return 1;
+}
+
+int l_growth_interval_value(lua_State* L) {
+    // Q8 percentage POINTS (2560 means +10%), not an income amount. Match the
+    // growth child46fac0's actual recipient Food-surplus/default-Food pricing;
+    // the corrected recurring-interval origin is shared with other CE quotes.
+    // This prices today's positive surplus, not a population-growth simulation.
+    const int owner=hks::checkinteger(L,1),cityId=hks::checkinteger(L,2),percent=hks::checkinteger(L,3);
+    const int ready=hks::checkinteger(L,4),horizon=hks::checkinteger(L,5),discount=hks::checkinteger(L,6);
+    const unsigned char *player{},*city{};
+    if (percent<0 || percent>100*Q8Units || !quote_times(ready,horizon,discount) ||
+        !quote_objects(owner,cityId,player,city) || !qualify_service_pricing() ||
+        !readable(city,ServicePricingLayout::CityGrowthOffset+sizeof(void*),false)) return 0;
+    int surplus{};
+    if (Runtime::GetGameCoreGlobalAt<FoodSurplusFn>(ServicePricingLayout::FoodSurplusRva)(
+        city+ServicePricingLayout::CityGrowthOffset,&surplus)!=&surplus) return 0;
+    const auto* food=Runtime::GetGameCoreGlobalAt<const int*>(ServicePricingLayout::FoodYieldIndexRva);
+    if (!readable(food,sizeof(int),false) || *food<0 || *food>=128) return 0;
+    const auto quantity=static_cast<int64_t>((std::max)(0,surplus))*percent/(100*Q8Units);
+    if (quantity>128*Q8Units) return 0;
+    int input=static_cast<int>(quantity),normalized{},rate=discount,value{};
+    if (Runtime::GetGameCoreGlobalAt<NormalizeYieldFn>(NormalizeYieldIncomeRva)(
+        &normalized,&input,static_cast<unsigned>(*food),nullptr)!=&normalized) return 0;
+    if (Runtime::GetGameCoreGlobalAt<TimedIncomeFn>(DiscountTimedIncomeRva)(
+        &value,&normalized,&rate,ready,horizon)!=&value ||
+        !checked_economy_quote(value,ready==0?normalized:0,input,true,value)) return 0;
+    hks::pushinteger(L,value);return 1;
+}

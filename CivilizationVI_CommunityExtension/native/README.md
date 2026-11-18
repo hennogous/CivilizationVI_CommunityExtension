@@ -741,3 +741,38 @@ Shared-controller Online25 qualification,15 November: real context50/1024,
 six captured real-map ledgers reconcile economic/bid totals and native cost
 residuals; invalid inputs return nil. Exit0 and preference restoration pass.
 Artifacts: Desktop/Codex/csc-ai-native-valuation-20261115/fresh25-01.
+
+
+## Optional effect prices,18 November2026
+
+`CE_AIEconomyStatus` adds `servicePricingReady`; ordinary pricing remains usable
+when this optional qualification fails. No additional hook is installed.
+
+- `CE_AIPseudoYieldIntervalValue(player,city,pseudoYieldId,amountQ8,start,end,discountQ8)`
+  returns native Q8 utility. IDs come from loaded PseudoYields; GPP classes expose
+  their PseudoYieldType. Native strategic/diplomatic weights apply once. Amounts
+  are bounded to plus/minus128 units; IDs must fit the actual definition vector
+  and be below1024. Existing interval/time bounds apply.
+- `CE_AIGrowthIntervalValue(player,city,percentPointsQ8,start,end,discountQ8)`
+  takes2560 for+10%. It reads actual positive Food surplus and uses default Food
+  normalization, following the growth child. Percentages0..100 are admitted.
+  It does not simulate future population, Housing or modifier eligibility.
+
+Invalid objects, bounds or image qualification return no Lua result. Recurring
+intervals use the corrected zero cumulative origin. Pseudo-yield utility may
+be zero or signed according to native preference. Borrowed pointers never escape
+these synchronous gameplay calls. CE supplies no mod-specific chain policy.
+
+ServicePricingLayout names NormalizePseudoYield52af40, definitions7d1480,
+FoodSurplus124060, Food index globalb8f648 and CityGrowth+970. GPP child47b3f0
+and growth child46fac0 establish the normalization/timing ABI. Supported XP2
+SHA092abfbb and reference324c51e9 share exact .text SHA256
+`d5bc8feddb8c030dbf2afc3fa9d9110eadbdb349cdb8aa56d5928625290c3d79`.
+Full-image identity plus the new function prefixes qualify these calls.
+
+Supported MSVC build and253 native checks pass. Unchanged saved-world100/250
+checks repeat native prices/calculated bids, then close/restore. At100,
+Engineer204+191=395Q8 and Tourism256+209=465Q8 reconcile two one-period quotes.
+Growth+10% with11 positive surplus quotes488Q8 over two periods. The mature
+Engineer's native price is0. Evidence: Henno-Mods/project/docs/research/mods/
+`csc-ai-service-valuation-implementation-20261118.md` and JSON. No upstream PR.
