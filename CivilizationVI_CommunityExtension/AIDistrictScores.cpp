@@ -46,6 +46,8 @@ constexpr int MaxSamples = 64;
 constexpr int TraceCapacity = 16384;
 constexpr int TracePageSize = 64;
 constexpr int Q8Units = 256;
+constexpr int MaxWonderOffers = 512;
+constexpr int MaxWonderOfferQ8 = 8 * Q8Units;
 constexpr int MaxBuilderBidQ8 = 64 * Q8Units;
 constexpr int MaxNominationBidQ8 = 512 * Q8Units;
 constexpr int InvalidScore = -9999 * Q8Units;
@@ -71,6 +73,9 @@ struct Sample {
 struct BuilderAllowance {
     int player, city, plot, improvement;
     int deltaQ8{};
+};
+struct WonderPlacementOffer {
+    int player, city, building, plot, deltaQ8;
 };
 struct BuildingNomination {
     int player, city, building, deltaQ8;
@@ -117,6 +122,8 @@ struct Policy {
     std::array<Entry, MaxEntries> entries{};
     int builderCount{};
     bool protectWonders{};
+    int wonderOfferCount{};
+    std::array<WonderPlacementOffer, MaxWonderOffers> wonderOffers{};
     bool protectHarvests{};
     std::array<BuilderAllowance, MaxEntries> builders{};
     int nominationCount{};
@@ -139,6 +146,7 @@ void clear_policy(Policy& value) {
     value.hasLateEntries = false;
     value.managedCount = 0;
     value.protectWonders = false;
+    value.wonderOfferCount = 0;
     value.protectHarvests = false;
     value.allowed.fill(false);
 }
@@ -1024,15 +1032,42 @@ int l_stage_wonder_protection(lua_State* L) {
     return integer_result(L, ok);
 }
 
+int l_wonder_offer(lua_State* L) {
+    const WonderPlacementOffer offer{
+        hks::checkinteger(L, 1), hks::checkinteger(L, 2), hks::checkinteger(L, 3),
+        hks::checkinteger(L, 4), hks::checkinteger(L, 5)};
+    bool ok;
+    {
+        std::unique_lock guard(policyMutex);
+        const auto end = staging.wonderOffers.begin() + staging.wonderOfferCount;
+        ok = wonder_ready && !wonder_faults && staging_valid &&
+            staging.wonderOfferCount < MaxWonderOffers && offer.player >= 0 &&
+            offer.player < MaxPlayers && staging.allowed[offer.player] &&
+            offer.city >= 0 && offer.building >= 0 && offer.plot >= 0 &&
+            offer.plot < staging.width * staging.height &&
+            offer.deltaQ8 > 0 && offer.deltaQ8 <= MaxWonderOfferQ8 &&
+            std::none_of(staging.wonderOffers.begin(), end, [&](const auto& old) {
+                return wonder_offer_key(offer) == wonder_offer_key(old);
+            });
+        if (ok)
+            staging.wonderOffers[staging.wonderOfferCount++] = offer;
+    }
+    return integer_result(L, ok);
+}
+
 int l_wonder_status(lua_State* L) {
-    char output[400];
+    char output[640];
     {
         std::shared_lock guard(policyMutex);
         const auto& a = first_wonder_change;
+        const auto& b = first_wonder_offer;
         snprintf(output, sizeof output,
-            "{\"ready\":%d,\"protected\":%d,\"changed\":%ld,\"faults\":%ld,\"first\":[%d,%d,%d,%d,%d,%d]}",
+            "{\"ready\":%d,\"protected\":%d,\"changed\":%ld,\"faults\":%ld,\"first\":[%d,%d,%d,%d,%d,%d],"
+            "\"version\":%d,\"offerCapacity\":%d,\"offers\":%d,\"matchedOffers\":%ld,\"boostedOffers\":%ld,"
+            "\"firstBoost\":[%d,%d,%d,%d,%d,%d]}",
             static_cast<int>(wonder_ready), static_cast<int>(policy.protectWonders), wonder_changed, wonder_faults,
-            a[0], a[1], a[2], a[3], a[4], a[5]);
+            a[0], a[1], a[2], a[3], a[4], a[5], policy.version, MaxWonderOffers, policy.wonderOfferCount,
+            wonder_matched, wonder_boosted, b[0], b[1], b[2], b[3], b[4], b[5]);
     }
     push_json(L, output, strlen(output));
     return 1;
@@ -1126,6 +1161,8 @@ int l_commit(lua_State* L) {
             staging.builderCount = static_cast<int>(std::unique(first, end, [](const auto& a, const auto& b) {
                 return !builder_order(a, b) && !builder_order(b, a);
             }) - first);
+            std::sort(staging.wonderOffers.begin(), staging.wonderOffers.begin() + staging.wonderOfferCount,
+                [](const auto& a, const auto& b) { return wonder_offer_key(a) < wonder_offer_key(b); });
             finish_nominations(staging);
             finish_repairs(staging);
             finish_ownership_scopes(staging);
@@ -1141,8 +1178,8 @@ int l_commit(lua_State* L) {
             builder_changed = builder_bids = 0;
             first_builder_change = {};
             first_builder_bid = {};
-            wonder_changed = 0;
-            first_wonder_change = {};
+            wonder_changed = wonder_matched = wonder_boosted = 0;
+            first_wonder_change = first_wonder_offer = {};
             harvest_rejected = 0;
             first_harvest_rejection = {};
             changed = matched = sample_count = trace_count = 0;
@@ -1451,7 +1488,8 @@ void reset_policy(void) {
             managed_trace_records = 0;
     builder_changed = builder_bids = builder_faults = wonder_changed = wonder_faults = 0;
     first_builder_bid = {};
-    first_wonder_change = {};
+    first_wonder_change = first_wonder_offer = {};
+    wonder_matched = wonder_boosted = 0;
     harvest_rejected = harvest_faults = 0;
     nominations_published.store(false, std::memory_order_relaxed);
     nomination_changed = nomination_faults = 0;
@@ -1517,6 +1555,7 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_stage_harvest_protection, "CE_AIBuilderHarvestProtectionStage", hks::LUA_GLOBAL, "CE_AIBuilderHarvestProtectionStage");
     PushLuaMethod(L, l_harvest_status, "CE_AIBuilderHarvestProtectionStatus", hks::LUA_GLOBAL, "CE_AIBuilderHarvestProtectionStatus");
     PushLuaMethod(L, l_stage_wonder_protection, "CE_AISupplierWonderProtectionStage", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStage");
+    PushLuaMethod(L, l_wonder_offer, "CE_AIWonderPlacementOffer", hks::LUA_GLOBAL, "CE_AIWonderPlacementOffer");
     PushLuaMethod(L, l_wonder_status, "CE_AISupplierWonderProtectionStatus", hks::LUA_GLOBAL, "CE_AISupplierWonderProtectionStatus");
     PushLuaMethod(L, l_late_entry, "CE_AIDistrictScoresLateEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresLateEntry");
     PushLuaMethod(L, l_final_entry, "CE_AIDistrictScoresFinalEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresFinalEntry");

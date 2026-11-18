@@ -141,14 +141,36 @@ using BuildingNetFn = int* (__cdecl *)(int*, unsigned, const void*, int, int, vo
 BuildingNetFn original_building_net{};
 bool wonder_ready{};
 long wonder_changed{}, wonder_faults{};
-std::array<int, 6> first_wonder_change{};
+long wonder_matched{}, wonder_boosted{};
+std::array<int, 6> first_wonder_change{}, first_wonder_offer{};
+
+auto wonder_offer_key(const WonderPlacementOffer& offer) {
+    return std::tie(offer.player, offer.city, offer.building, offer.plot);
+}
+
+int wonder_placement_offer(const WonderPlacementOffer& key) {
+    const auto end = policy.wonderOffers.begin() + policy.wonderOfferCount;
+    const auto found = std::lower_bound(policy.wonderOffers.begin(), end, key,
+        [](const auto& a, const auto& b) { return wonder_offer_key(a) < wonder_offer_key(b); });
+    return found != end && wonder_offer_key(*found) == wonder_offer_key(key) ? found->deltaQ8 : 0;
+}
+
+int adjust_wonder_score(int nativeQ8, int requestedQ8) {
+    // This is a small preference among worthwhile native candidates. At most
+    // one thirty-second of the legal row, with an absolute eight-utility cap.
+    // Preserve all nonpositive/sentinel scores and leave headroom for the sum.
+    if (nativeQ8 <= 0 || nativeQ8 > MaxScore || requestedQ8 <= 0)
+        return nativeQ8;
+    return nativeQ8 + (std::min)({requestedQ8, MaxWonderOfferQ8, nativeQ8 / 32});
+}
 
 int* __cdecl hook_building_net(int* out, unsigned building, const void* discount,
     int delay, int horizon, void* playerObject, void* city, const int* coords) {
     ActiveCall activity;
-    BuilderAllowance key{};
+    WonderPlacementOffer key{};
     long epoch{};
     bool protect{};
+    int requestedQ8{};
     const auto* caller = _ReturnAddress();
     if (ordinary_forecast_ready &&
         caller == Runtime::GetGameCoreGlobalAt<void*>(OrdinaryBuildingForecastReturnRva))
@@ -156,34 +178,54 @@ int* __cdecl hook_building_net(int* out, unsigned building, const void* discount
     if (enabled.load() && caller ==
         Runtime::GetGameCoreGlobalAt<void*>(WonderRowReturnRva)) {
         std::shared_lock guard(policyMutex);
-        if (enabled && policy.protectWonders && !wonder_faults && building <= INT_MAX &&
+        if (enabled && (policy.protectWonders || policy.wonderOfferCount > 0) &&
+            !wonder_faults && building <= INT_MAX &&
             readable(city, CityOwnerOffset + sizeof(int), false) && readable(coords, 2 * sizeof(int), false)) {
             const auto* c = static_cast<const unsigned char*>(city);
             const int player = read_field<int>(c, CityOwnerOffset);
             const int x = coords[0], y = coords[1];
             if (player >= 0 && player < MaxPlayers && policy.allowed[player] &&
                 x >= 0 && x < policy.width && y >= 0 && y < policy.height) {
-                key = {player, read_field<int>(c, CityIdOffset), y * policy.width + x,
-                    static_cast<int>(building)};
-                protect = supplier_at(key) != policy.builders.begin() + policy.builderCount;
+                key = {player, read_field<int>(c, CityIdOffset), static_cast<int>(building),
+                    y * policy.width + x, 0};
+                const BuilderAllowance supplier{player, key.city, key.plot, 0};
+                protect = policy.protectWonders &&
+                    supplier_at(supplier) != policy.builders.begin() + policy.builderCount;
+                requestedQ8 = wonder_placement_offer(key);
                 epoch = generation;
             }
         }
     }
 
     int* result = original_building_net(out, building, discount, delay, horizon, playerObject, city, coords);
-    if (protect) {
+    if (protect || requestedQ8 > 0) {
         std::unique_lock guard(policyMutex);
+        // The original function can run across a commit or disable. Only the
+        // still-current packet can edit its returned score or count a receipt.
         if (enabled && generation == epoch && !wonder_faults) {
             const int floor = *Runtime::GetGameCoreGlobalAt<const int*>(ImprovementScoreFloorRva);
-            if (result != out || !readable(out, sizeof(*out), true) || floor >= 0) {
+            if (result != out || !readable(out, sizeof(*out), true) || (protect && floor >= 0)) {
                 ++wonder_faults;
-            }
-            else if (*out > floor) {
-                if (wonder_changed == 0)
-                    first_wonder_change = {key.player, key.city, key.plot, key.improvement, *out, floor};
-                ++wonder_changed;
-                *out = floor;
+            } else {
+                if (requestedQ8 > 0)
+                    ++wonder_matched;
+                const int before = *out;
+                if (protect) {
+                    if (before > floor) {
+                        if (wonder_changed == 0)
+                            first_wonder_change = {key.player, key.city, key.plot, key.building, before, floor};
+                        ++wonder_changed;
+                        *out = floor;
+                    }
+                } else {
+                    const int after = adjust_wonder_score(before, requestedQ8);
+                    if (after != before) {
+                        if (wonder_boosted == 0)
+                            first_wonder_offer = {key.player, key.city, key.plot, key.building, before, after};
+                        ++wonder_boosted;
+                        *out = after;
+                    }
+                }
             }
         }
     }

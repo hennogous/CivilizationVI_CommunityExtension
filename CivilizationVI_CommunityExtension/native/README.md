@@ -498,7 +498,27 @@ Target and harvest bindings use the offsets and record widths documented
 beside the hook. The selected worker store and player ID read have separate
 prefix checks. An unsupported hook leaves score-stage protection available.
 
-## Wonder site protection
+## Wonder site offers and supplier protection
+
+`CE_AIWonderPlacementOffer(player, city, building, plot, deltaQ8)` stages an
+optional site preference for an exact Wonder and plot in the current score
+packet. It accepts at most 512 unique keys and positive values up to 2048 Q8.
+It returns 1 for staging, 0 for bad keys, limits or missing capability. Publish
+with the district commit and refresh for the next policy generation.
+
+The existing XP2 plot evaluator at RVA 3e2aa0 checks CanHaveWonder (25bad0),
+calls Building NetValue (52a050) from 3e419a, then copies the returned signed
+Q8 value to its per-building plot row. The existing shared CE hook filters
+on return RVA 3e419f and validates the current packet generation, coordinates,
+city/owner and writable return slot. It caps a positive offer at one
+thirty-second of the original positive row value. Supplier protection takes
+precedence. Other callers, including ordinary building forecasts, retain their
+existing behavior. No second hook or new target layout is involved.
+
+The existing Wonder status now also reports `offerCapacity`, the published
+`version` and `offers`, `matchedOffers`, `boostedOffers`, and a first write
+`[player,city,plot,building,beforeQ8,afterQ8]`. Staging and score writes precede
+the actual comparison, reservation and construction.
 
 CE_AISupplierWonderProtectionStage() opts the staged Builder supplier sites
 into Wonder protection. Invoke it after supplying the allowed improvements
