@@ -47,7 +47,7 @@ constexpr int TraceCapacity = 16384;
 constexpr int TracePageSize = 64;
 constexpr int Q8Units = 256;
 constexpr int MaxWonderOffers = 512;
-constexpr int MaxWonderOfferQ8 = 8 * Q8Units;
+constexpr int MaxWonderOfferQ8 = 24 * Q8Units;
 constexpr int MaxBuilderBidQ8 = 64 * Q8Units;
 constexpr int MaxNominationBidQ8 = 512 * Q8Units;
 constexpr int InvalidScore = -9999 * Q8Units;
@@ -1063,10 +1063,10 @@ int l_wonder_status(lua_State* L) {
         const auto& b = first_wonder_offer;
         snprintf(output, sizeof output,
             "{\"ready\":%d,\"protected\":%d,\"changed\":%ld,\"faults\":%ld,\"first\":[%d,%d,%d,%d,%d,%d],"
-            "\"version\":%d,\"offerCapacity\":%d,\"offers\":%d,\"matchedOffers\":%ld,\"boostedOffers\":%ld,"
+            "\"version\":%d,\"offerCapacity\":%d,\"maxOfferQ8\":%d,\"offers\":%d,\"matchedOffers\":%ld,\"boostedOffers\":%ld,"
             "\"firstBoost\":[%d,%d,%d,%d,%d,%d]}",
             static_cast<int>(wonder_ready), static_cast<int>(policy.protectWonders), wonder_changed, wonder_faults,
-            a[0], a[1], a[2], a[3], a[4], a[5], policy.version, MaxWonderOffers, policy.wonderOfferCount,
+            a[0], a[1], a[2], a[3], a[4], a[5], policy.version, MaxWonderOffers, MaxWonderOfferQ8, policy.wonderOfferCount,
             wonder_matched, wonder_boosted, b[0], b[1], b[2], b[3], b[4], b[5]);
     }
     push_json(L, output, strlen(output));

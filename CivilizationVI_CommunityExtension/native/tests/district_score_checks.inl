@@ -494,9 +494,9 @@ int run_self_test() {
     CHECK(adjusted_builder_score(38655, InvalidScore, farm) == InvalidScore);
     // Positive native rows retain their relative strength outside the bounded
     // preference. Neither invalid rows nor arithmetic limits can be lifted.
-    CHECK(adjust_wonder_score(25600, 8 * Q8Units) == 26400);
-    CHECK(adjust_wonder_score(256000, 16 * Q8Units) == 258048);
-    CHECK(adjust_wonder_score(256000, 4 * Q8Units) == 257024);
+    CHECK(adjust_wonder_score(25600, 24 * Q8Units) == 27733);
+    CHECK(adjust_wonder_score(256000, 32 * Q8Units) == 262144);
+    CHECK(adjust_wonder_score(256000, 16 * Q8Units) == 260096);
     CHECK(adjust_wonder_score(0, 8 * Q8Units) == 0);
     CHECK(adjust_wonder_score(InvalidScore, 8 * Q8Units) == InvalidScore);
     CHECK(adjust_wonder_score(INT_MAX, 8 * Q8Units) == INT_MAX);

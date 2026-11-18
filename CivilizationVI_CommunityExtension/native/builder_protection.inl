@@ -156,12 +156,12 @@ int wonder_placement_offer(const WonderPlacementOffer& key) {
 }
 
 int adjust_wonder_score(int nativeQ8, int requestedQ8) {
-    // This is a small preference among worthwhile native candidates. At most
-    // one thirty-second of the legal row, with an absolute eight-utility cap.
+    // Let a working CSC chain compete with middling alternatives. One
+    // twelfth of the legal row and an absolute 24 utility bound the swing.
     // Preserve all nonpositive/sentinel scores and leave headroom for the sum.
     if (nativeQ8 <= 0 || nativeQ8 > MaxScore || requestedQ8 <= 0)
         return nativeQ8;
-    return nativeQ8 + (std::min)({requestedQ8, MaxWonderOfferQ8, nativeQ8 / 32});
+    return nativeQ8 + (std::min)({requestedQ8, MaxWonderOfferQ8, nativeQ8 / 12});
 }
 
 int* __cdecl hook_building_net(int* out, unsigned building, const void* discount,

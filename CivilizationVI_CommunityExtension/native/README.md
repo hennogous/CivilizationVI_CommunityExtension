@@ -502,7 +502,7 @@ prefix checks. An unsupported hook leaves score-stage protection available.
 
 `CE_AIWonderPlacementOffer(player, city, building, plot, deltaQ8)` stages an
 optional site preference for an exact Wonder and plot in the current score
-packet. It accepts at most 512 unique keys and positive values up to 2048 Q8.
+packet. It accepts at most 512 unique keys and positive values up to 6144 Q8.
 It returns 1 for staging, 0 for bad keys, limits or missing capability. Publish
 with the district commit and refresh for the next policy generation.
 
@@ -511,11 +511,11 @@ calls Building NetValue (52a050) from 3e419a, then copies the returned signed
 Q8 value to its per-building plot row. The existing shared CE hook filters
 on return RVA 3e419f and validates the current packet generation, coordinates,
 city/owner and writable return slot. It caps a positive offer at one
-thirty-second of the original positive row value. Supplier protection takes
+twelfth of the original positive row value. Supplier protection takes
 precedence. Other callers, including ordinary building forecasts, retain their
 existing behavior. No second hook or new target layout is involved.
 
-The existing Wonder status now also reports `offerCapacity`, the published
+The existing Wonder status now also reports `offerCapacity` and `maxOfferQ8`, the published
 `version` and `offers`, `matchedOffers`, `boostedOffers`, and a first write
 `[player,city,plot,building,beforeQ8,afterQ8]`. Staging and score writes precede
 the actual comparison, reservation and construction.
