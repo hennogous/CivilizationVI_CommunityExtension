@@ -28,6 +28,8 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <new>
+#include <unordered_set>
 #include <shared_mutex>
 #include <vector>
 
@@ -48,7 +50,10 @@ constexpr int TracePageSize = 64;
 constexpr int Q8Units = 256;
 constexpr int MaxWonderOffers = 512;
 constexpr int MaxWonderOfferQ8 = 24 * Q8Units;
-constexpr int MaxBuilderBidQ8 = 64 * Q8Units;
+// Allow larger live transaction quotes only for the exact improvement row.
+// This transport bound matches the material request bound. Native eligibility,
+// the untuned score and ordinary improvement competition still apply.
+constexpr int MaxBuilderBidQ8 = 128 * Q8Units;
 constexpr int MaxNominationBidQ8 = 512 * Q8Units;
 constexpr int InvalidScore = -9999 * Q8Units;
 constexpr int MinimumScore = -4096 * Q8Units;
@@ -113,7 +118,15 @@ struct ManagedDistrictType {
     long masked{}, requestWrites{}, failures{};
     int lastCity{-1}, lastPlot{-1}, lastReason{}, lastReservation{INT_MIN};
 };
+struct MaterialResearchOffer { int player, kind, index, deltaQ8; };
+struct MaterialBuilderOffer { int player, city, plot, improvement, unit, deltaQ8; };
+struct MaterialWorkerOffer { int player, city, plot, improvement, unit, unitType, x, y; };
 struct Policy {
+    // Bound each material decision list to four entries per AI player.
+    int materialResearchCount{}, materialRequestCount{}, materialWorkerCount{};
+    std::array<MaterialResearchOffer, MaxPlayers * 4> materialResearch{};
+    std::array<MaterialBuilderOffer, MaxPlayers * 4> materialRequests{};
+    std::array<MaterialWorkerOffer, MaxPlayers * 4> materialWorkers{};
     int version{}, width{}, height{}, districts{}, count{};
     bool hasLateEntries{};
     int managedCount{};
@@ -143,6 +156,7 @@ void clear_policy(Policy& value) {
     // the entire fixed table as a temporary on the gameplay Lua stack.
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
     value.nominationCount = value.repairCount = value.exclusionCount = value.ownershipCount = value.declineCount = 0;
+    value.materialResearchCount = value.materialRequestCount = value.materialWorkerCount = 0;
     value.hasLateEntries = false;
     value.managedCount = 0;
     value.protectWonders = false;
@@ -1137,6 +1151,7 @@ int l_supplier_exclusion_status(lua_State* L) {
 }
 
 #include "native/district_candidate_decline_api.inl"
+#include "native/material_development.inl"
 
 int l_commit(lua_State* L) {
     bool ok;
@@ -1168,6 +1183,7 @@ int l_commit(lua_State* L) {
             finish_ownership_scopes(staging);
             finish_declines(staging);
             policy = staging;
+            MaterialDevelopment::Published(policy);
             ownership_published.store(policy.ownershipCount > 0, std::memory_order_relaxed);
             nominations_published.store(policy.nominationCount > 0, std::memory_order_relaxed);
             repairs_published.store(policy.repairCount > 0, std::memory_order_relaxed);
@@ -1483,6 +1499,7 @@ void reset_policy(void) {
     staging_valid = false;
     generation++;
     clear_policy(policy);
+    MaterialDevelopment::Published(policy);
     changed = matched = sample_count = trace_count = faults = 0;
     managed_passes = managed_microseconds = managed_writes = managed_trace_dropped = 0;
             managed_trace_records = 0;
@@ -1540,6 +1557,7 @@ bool Create() {
     nomination_ready = hooks_ready && install_nomination_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     repair_ready = hooks_ready && install_repair_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
     ownership_ready = hooks_ready && install_ownership_hook(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress));
+    if (hooks_ready) MaterialDevelopment::Install(reinterpret_cast<const unsigned char*>(Runtime::GameCoreAddress), builder_ready);
     return hooks_ready;
 }
 
@@ -1549,6 +1567,10 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_begin, "CE_AIDistrictScoresBegin", hks::LUA_GLOBAL, "CE_AIDistrictScoresBegin");
     PushLuaMethod(L, l_allow, "CE_AIDistrictScoresAllow", hks::LUA_GLOBAL, "CE_AIDistrictScoresAllow");
     PushLuaMethod(L, l_entry, "CE_AIDistrictScoresEntry", hks::LUA_GLOBAL, "CE_AIDistrictScoresEntry");
+    PushLuaMethod(L, MaterialDevelopment::stage_research, "CE_AIMaterialResearchBid", hks::LUA_GLOBAL, "CE_AIMaterialResearchBid");
+    PushLuaMethod(L, MaterialDevelopment::stage_builder, "CE_AIMaterialBuilderRequestBid", hks::LUA_GLOBAL, "CE_AIMaterialBuilderRequestBid");
+    PushLuaMethod(L, MaterialDevelopment::WorkerDispatch::stage_offer, "CE_AIMaterialWorkerFinishOffer", hks::LUA_GLOBAL, "CE_AIMaterialWorkerFinishOffer");
+    PushLuaMethod(L, MaterialDevelopment::status, "CE_AIMaterialDevelopmentStatus", hks::LUA_GLOBAL, "CE_AIMaterialDevelopmentStatus");
     PushLuaMethod(L, l_builder_allow, "CE_AIBuilderProtectionAllow", hks::LUA_GLOBAL, "CE_AIBuilderProtectionAllow");
     PushLuaMethod(L, l_builder_status, "CE_AIBuilderProtectionStatus", hks::LUA_GLOBAL, "CE_AIBuilderProtectionStatus");
     PushLuaMethod(L, l_builder_bid, "CE_AIBuilderProtectionBid", hks::LUA_GLOBAL, "CE_AIBuilderProtectionBid");

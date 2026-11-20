@@ -484,10 +484,10 @@ int run_self_test() {
     const auto pasture = builder_adjustment({3, 131073, 796, 5});
     const auto farm = builder_adjustment({3, 131073, 796, 1});
     const auto elsewhere = builder_adjustment({3, 131073, 795, 5});
-    CHECK(!pasture.reject && pasture.deltaQ8 == 64 * Q8Units);
+    CHECK(!pasture.reject && pasture.deltaQ8 == 128 * Q8Units);
     CHECK(farm.reject && !farm.deltaQ8);
     CHECK(!elsewhere.reject && !elsewhere.deltaQ8);
-    CHECK(adjusted_builder_score(29056, InvalidScore, pasture) == 45440);
+    CHECK(adjusted_builder_score(29056, InvalidScore, pasture) == 61824);
     CHECK(adjusted_builder_score(0, InvalidScore, pasture) == 0);
     CHECK(adjusted_builder_score(InvalidScore, InvalidScore, pasture) == InvalidScore);
     CHECK(adjusted_builder_score(INT_MAX, InvalidScore, pasture) == INT_MAX);
@@ -944,6 +944,12 @@ int run_self_test() {
     CHECK(l_growth_interval_value(asLua(quoteArgs)) == 0);
     CHECK(l_yield_fixed_value(asLua(quoteArgs)) == 0);
     cacheTestScore = nullptr; reset_policy();
+
+    CHECK(MaterialDevelopment::test_comparison(0));
+    CHECK(MaterialDevelopment::test_comparison(1));
+    CHECK(MaterialDevelopment::test_builder_scope());
+    CHECK(MaterialDevelopment::WorkerDispatch::test_order());
+    CHECK(MaterialDevelopment::WorkerDispatch::test_existing_custody());
 
 #undef CHECK
     return n;
