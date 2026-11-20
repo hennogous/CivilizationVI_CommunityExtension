@@ -16,6 +16,9 @@ namespace Runtime {
 	extern Log::Logger* MainLogger;
 
 	namespace Base {
+		// EventSystems resolves the publication entry and Lua lock here.
+		// ForgeUI uses the lock routines and the manager pointer slot. All
+		// five RVAs address CivVIModHandle, the process executable module.
 		struct ExecutableProfile {
 			const char* name;
 			const char* executableSha;

@@ -1,8 +1,9 @@
 /* A typed alternative to the whole-plot SupplierRowMask.
  *
  * ABI/layout scope is the already fingerprinted GetBestDistrict entry and
- * bounded CityBuild matrix in target_identity.h (XP2 reference324c51e9,
- * hotfix092abfbb matching text). The shared physical-footprint getter also protects foundations; no additional detour or Lua callback.
+ * bounded CityBuild matrix qualified in target_identity.h. The shared
+ * physical-footprint getter also protects foundations. The mask runs inside
+ * the existing selector hook and requires no extra Lua callback.
  * GetBestDistrict reads scores/reservations without reallocating this matrix.
  * Restore every borrowed cell before cache readback or district preparation.
  *

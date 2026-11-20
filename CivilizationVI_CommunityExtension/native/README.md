@@ -1,5 +1,37 @@
 # Experimental district-site score API
 
+## Review the current csc-dev integration
+
+[Main.cpp](../Main.cpp) keeps CE's process initialization, gameplay Lua
+registration and game-context reset. [Runtime](../Runtime.h) owns hook
+installation. The existing CE features use CreateHook. The related AI detours
+use InstallHookGroup so all original trampolines exist before a group can run.
+Runtime also owns the verified instruction adapter used by ordinary building
+nomination. Its assembly replays the interrupted native instruction.
+
+[AIDistrictScores.cpp](../AIDistrictScores.cpp) owns the versioned policy and
+bindings. Lua stages numeric offers, Commit publishes one generation, and
+Reset retires game-context state. Native workers read bounded copies or hold a
+policy lock only for local, guarded reads and writes. The lock is released
+before the original decision or a Lua API call. Native objects are borrowed for
+the current call. A receipt identifies the observed consumer and the action it
+took, such as a score write or an earlier tree update.
+
+| Consumer | Where to start | Scope |
+| --- | --- | --- |
+| District scores and managed types | [District scores](../AIDistrictScores.cpp), [managed values](district_managed_values.inl) | Civ owns legal locations, reservations and production competition. |
+| Static and timed quotes | [Economy pricing](economy_pricing.inl), [site pricing](native_site_pricing.inl) | Quotes return signed Q8 utility for the caller to use in a bid. |
+| Supplier protection and repair | [Builder protection](builder_protection.inl), [harvest](clear_plot_harvest.inl), [repair admission](district_repair_admission.inl) | Guards apply at the ordinary work or repair decision. |
+| Research, recruitment and finishing | [Material development](material_development.inl), [worker finishing](material_worker_dispatch.inl) | Civ owns prerequisites, queue competition, custody and legal work. |
+
+Current support is Windows DX11 and Gathering Storm on Steam build 26595377.
+[target_identity.h](target_identity.h) and Runtime's executable profile identify
+the two images. The [relocation ledger](../../native-relocation.json) maps the
+previous and current RVAs. Feature-local layout constants and prefixes sit
+next to their callers. Unqualified features keep the original native path or
+leave their optional Lua capability unavailable. The dated sections below
+retain their own binary scope and addresses.
+
 `CE_AIMonotonicSeconds()` returns read-only fractional seconds from a local
 `std::chrono::steady_clock` origin. Subtract readings around a synchronous Lua
 policy pass to measure elapsed wall time, including native pricing/UI calls.

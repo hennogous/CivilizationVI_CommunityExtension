@@ -8,10 +8,10 @@ using DistrictIntrinsicFn = int* (__cdecl *)(int*, unsigned, int*, int, int,
     const void*, const void*, void*);
 
 namespace SitePricingLayout {
-// XP2 SHA092abfbb / reference324c51e9, full .text parity, Ghidra15 Nov2026.
-// NetValue52a440 calls Value52d500 with an empty24-byte Types::Vector<AiMapChange>
-// and frees its buffer through this image's _aligned_free import. Use that
-// exact allocator boundary rather than freeing a native allocation in CE's CRT.
+// The 15 November trace recovered this NetValue/Value ABI. Use the Steam
+// 26595377 addresses below and the identity in target_identity.h.
+// NetValue passes Value an empty 24-byte Types::Vector<AiMapChange>.
+// GameCore allocates its buffer, so release it through GameCore's own import.
 constexpr uintptr_t IntrinsicDistrictRva = 0x52d4e0;
 constexpr uintptr_t DistrictDefinitionsRva = 0x7d0920;
 constexpr uintptr_t EditMapRva = 0x44d40, PlotLookupRva = 0x52d10;
@@ -20,6 +20,10 @@ constexpr uintptr_t AlignedFreeImportRva = 0x9b7680;
 constexpr uintptr_t GlobalsPointerRva = 0xb8aa68;
 constexpr size_t GlobalsAiOffset = 0x250, AiDiscountOffset = 0x120;
 constexpr size_t AiHorizonsPointerOffset = 0x138, AttributeOwnerOffset = 0x1c;
+// Preserve the readable range required by the plot and attributes quotes.
+constexpr size_t PlotQuoteReadableBytes = 0x90;
+constexpr int OrdinaryDistrictHorizonIndex = 1;
+constexpr int WonderHorizonIndex = 2;
 constexpr int MaxHorizon = 300;
 
 struct Coordinates { int x, y; };
@@ -69,8 +73,10 @@ int l_evaluation_context(lua_State* L) {
     const auto* ai=read_field<const unsigned char*>(globals,GlobalsAiOffset);
     if (!readable(ai,AiHorizonsPointerOffset+sizeof(void*),false)) return 0;
     const auto* horizons=read_field<const int*>(ai,AiHorizonsPointerOffset);
-    if (!readable(horizons,3*sizeof(int),false)) return 0;
-    const int ordinary=horizons[1],wonder=horizons[2],discount=read_field<int>(ai,AiDiscountOffset);
+    if (!readable(horizons, (WonderHorizonIndex + 1) * sizeof(int), false)) return 0;
+    const int ordinary = horizons[OrdinaryDistrictHorizonIndex];
+    const int wonder = horizons[WonderHorizonIndex];
+    const int discount = read_field<int>(ai, AiDiscountOffset);
     if (ordinary<=0 || ordinary>MaxHorizon || discount<=0 || discount>64*Q8Units) return 0;
     char output[192];
     snprintf(output,sizeof output,"{\"ordinaryHorizon\":%d,\"wonderHorizon\":%d,\"discountQ8\":%d,\"maxHorizon\":%d}",
@@ -93,7 +99,10 @@ int l_district_site_adjustment(lua_State* L) {
     const auto* map=Runtime::GetGameCoreGlobalAt<const void* (*)()>(SitePricingLayout::EditMapRva)();
     if (!readable(map,sizeof(void*),false)) return 0;
     const auto* plot=Runtime::GetGameCoreGlobalAt<const unsigned char* (*)(const void*,const Coordinates*)>(PlotLookupRva)(map,&xy);
-    if (!readable(plot,0x90,false) || read_field<int16_t>(plot,PlotXOffset)!=xy.x || read_field<int16_t>(plot,PlotYOffset)!=xy.y) return 0;
+    if (!readable(plot, PlotQuoteReadableBytes, false) ||
+        read_field<int16_t>(plot, PlotXOffset) != xy.x ||
+        read_field<int16_t>(plot, PlotYOffset) != xy.y)
+        return 0;
     const auto* attributes=Runtime::GetGameCoreGlobalAt<const unsigned char* (*)(const void*)>(PlotAttributesRva)(plot);
     if (!readable(attributes,AttributeOwnerOffset+1,false)) return 0;
     const int actualOwner=read_field<int8_t>(attributes,AttributeOwnerOffset);

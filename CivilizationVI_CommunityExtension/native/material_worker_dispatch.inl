@@ -7,7 +7,10 @@ namespace WorkerDispatch {
 // once per entry at the supplied priority. It runs the destroy pass afterward.
 constexpr uintptr_t ManagerDoTurnRva = 0x5639f0, TreeUpdateRva = 0x5443a0;
 constexpr uintptr_t ManagerUpdateReturnRva = 0x563a2a, GameInstanceRva = 0xb8aa68;
-constexpr size_t ManagerPlayer = 0x330, ManagerTreeHead = 0x388, NextListNode = 0x10;
+constexpr size_t ManagerPlayer = 0x330, ManagerTreeHead = 0x388;
+// Both native lists expose the borrowed object pointer in the first field.
+constexpr size_t ListObjectOffset = 0;
+constexpr size_t NextListNode = 0x10;
 // Update checks node count, root state, native priority and suspension before
 // touching the tree. The plot, city and improvement are its live decode fields.
 constexpr size_t TreeNodeCount = 0xa0, TreeRoot = 0x108, TreeSuspended = 0x168;
@@ -18,7 +21,9 @@ constexpr size_t UnitX = 0xf8, UnitY = 0xfc, UnitProcessed = 0x258;
 constexpr size_t UnitDeparting = 0x2e8, UnitControl = 0x300, UnitCharges = 0x538, GameTurn = 0xc0;
 constexpr int WorkerPriority = 2, MaxOffers = 4, MaxScan = 512;
 
-using Update = bool(*)(const Byte*, int);
+// Win64 member-call shape for both Update entries. The first argument is
+// a borrowed manager or tree. The int is the native priority pass.
+using Update = bool (*)(const Byte*, int);
 Update originalManager{}, originalTree{};
 bool ready{};
 std::atomic<bool> published{};
@@ -53,7 +58,7 @@ const Byte* find_unit(const Byte* collection, const MaterialWorkerOffer& offer) 
     auto* node = read_field<const Byte*>(collection, UnitHead);
     for (int count = 0; node && count < MaxScan; ++count) {
         if (!readable(node, NextListNode + sizeof(const Byte*), false)) break;
-        const auto* unit = read_field<const Byte*>(node, 0);
+        const auto* unit = read_field<const Byte*>(node, ListObjectOffset);
         if (readable(unit, UnitCharges + sizeof(int), false) && read_field<int>(unit, UnitID) == offer.unit &&
             read_field<int>(unit, UnitType) == offer.unitType)
             return unit;
@@ -84,7 +89,7 @@ Assignment choose(const Byte* manager, const Byte* head, const Byte* collection,
     auto* node = head;
     for (int count = 0; node && count < MaxScan; ++count) {
         if (!readable(node, NextListNode + sizeof(const Byte*), false)) break;
-        const auto* tree = read_field<const Byte*>(node, 0);
+        const auto* tree = read_field<const Byte*>(node, ListObjectOffset);
         if (active_at_priority(tree) && read_field<const Byte*>(tree, TreeManager) == manager &&
             read_field<int>(tree, TreeControl) == holderId && read_field<int>(tree, TreeValue) > 0 &&
             read_field<int>(tree, ImprovementTreeKindOffset) == offer.improvement) {
@@ -153,13 +158,13 @@ bool test_existing_custody() {
     };
     const MaterialWorkerOffer offer{5, 131073, 2188, 1, 4390912, 7, 42, 29};
     put(collection, UnitHead, unitNode.data());
-    put(unitNode, 0, unit.data());
+    put(unitNode, ListObjectOffset, unit.data());
     put(unit, UnitID, offer.unit);
     put(unit, UnitType, offer.unitType);
     put(unit, UnitX, offer.x);
     put(unit, UnitY, offer.y);
     put(unit, UnitCharges, 1);
-    put(treeNode, 0, tree.data());
+    put(treeNode, ListObjectOffset, tree.data());
     put(tree, TreeRoot, &root);
     put(tree, TreeNodeCount, 1u);
     put(tree, TreeManager, manager.data());
@@ -209,6 +214,8 @@ bool update_manager(const Byte* manager, int priority) {
     if (!valid_player(pid) || !readable(collection, UnitHead + sizeof(const Byte*), false))
         return originalManager(manager, priority);
 
+    // Copy only this player's offers while holding the shared policy lock.
+    // Native tree/roster reads and the original manager run without it.
     std::array<MaterialWorkerOffer, MaxOffers> offers{};
     size_t count = 0;
     int width = 0;
@@ -224,7 +231,7 @@ bool update_manager(const Byte* manager, int priority) {
             }
         }
     }
-    const auto* first = read_field<const Byte*>(head, 0);
+    const auto* first = read_field<const Byte*>(head, ListObjectOffset);
     Assignment selected;
     for (size_t i = 0; i < count; ++i) {
         const auto candidate = choose(manager, head, collection, width, offers[i]);
@@ -237,6 +244,8 @@ bool update_manager(const Byte* manager, int priority) {
         selected = candidate;
         break;
     }
+    // The two calls are swapped only inside this thread's manager pass.
+    // A receipt reports the completed swap; the game can still reject work.
     if (!selected.job) return originalManager(manager, priority);
     const Pass pass{first, selected.job};
     ScopedContext scope(current, pass);

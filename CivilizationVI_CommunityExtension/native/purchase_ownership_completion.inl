@@ -4,8 +4,9 @@
 // saved plans reconstruct these identities through their deserialized triggers.
 // This neither buys land, supplies funds, changes a score nor issues a build.
 //
-// Evidence: XP2 reference SHA324c51e9 (text-identical Steam092abfbb), AI-N118,
-// CSC AI-C161. A paid plan stayed accepted (3), then timed out because ownership
+// AI-N118 and CSC AI-C161 document the original XP2 caller evidence.
+// target_identity.h and the relocation ledger qualify the current build.
+// A paid plan stayed accepted (3), then timed out because ownership
 // made Economic eligibility false. The diagnostic tracked3->7 assignment released
 // its ordinary request and foundation. Reload remains a live qualification gate.
 constexpr uintptr_t OwnershipDecoratorRva = 0x55a070;

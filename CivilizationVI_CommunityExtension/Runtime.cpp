@@ -22,14 +22,23 @@ namespace Runtime {
 		EXP_GetLogPath_t EXP_GetLogPath;
 
 		namespace {
-			// The GameCore offsets in this build are scoped to this exact pair.
-			// See the 26595377 relocation report for the unwind and reference checks.
+			// These RVAs are relative to the Windows DX11 executable. Pair its
+			// identity with XP2 before resolving either module's addresses.
+			// See native-relocation.json and the Steam 26595377 port report.
 			constexpr ExecutableProfile profiles[] = {
-				{"Steam DX11 build 26595377",
-				 "080928a2820d341f4dfaa07877d7b11a6a1a007752c39f09330a70993b10456b",
-				 "4de40abf7c739f53c1f3f825863ace84dc220e5a42d87620e56fceaf3fbd4dc8",
-				 0x6d630, 0x3553fa0, 0x88ba40, 0x894f00, 0x23607c8,
-				 {0x40, 0x57, 0x48, 0x83, 0xec, 0x70, 0xf2, 0x0f, 0x10, 0x15, 0xda, 0xea, 0xf3, 0x00, 0x4c, 0x8d, 0x0d, 0x4b, 0x76, 0x25, 0x01, 0x48, 0x8b, 0xf9}},
+				{
+					.name = "Steam DX11 build 26595377",
+					.executableSha = "080928a2820d341f4dfaa07877d7b11a6a1a007752c39f09330a70993b10456b",
+					.gameCoreSha = "4de40abf7c739f53c1f3f825863ace84dc220e5a42d87620e56fceaf3fbd4dc8",
+					.publishEvents = 0x6d630,
+					.luaCriticalSection = 0x3553fa0,
+					.forgeGetLock = 0x88ba40,
+					.forgeReleaseLock = 0x894f00,
+					.forgeManagerSlot = 0x23607c8,
+					.publishPrefix = {0x40, 0x57, 0x48, 0x83, 0xec, 0x70, 0xf2, 0x0f,
+						0x10, 0x15, 0xda, 0xea, 0xf3, 0x00, 0x4c, 0x8d,
+						0x0d, 0x4b, 0x76, 0x25, 0x01, 0x48, 0x8b, 0xf9},
+				},
 			};
 			const ExecutableProfile* selectedProfile = nullptr;
 

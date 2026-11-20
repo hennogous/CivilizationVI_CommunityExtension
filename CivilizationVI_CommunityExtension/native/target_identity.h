@@ -3,11 +3,12 @@
 #include <cstdint>
 
 namespace AI::DistrictScores::GameCoreLayout {
-// XP2 Windows Steam build 26595377, verified against the prior CE call sites. See native/README.md for the
-// recovered signatures, caller/register usage and fixture. Requalify the offsets
-// and instruction prefixes together before adding support for another image.
-// Generic economic quote helpers, rechecked against the text-identical November
-// XP2 profile. NormalizeYields and timed income use Q8 pointers/return buffers;
+// Module-relative RVAs and object offsets for Windows XP2 Steam 26595377.
+// GameCoreSha256 below identifies the on-disk image. The relocation ledger
+// records the previous and current targets. The native README explains the
+// signatures and callback boundaries. Requalify layout, ABI and prefixes
+// together when changing binary support.
+// NormalizeYields and timed income use Q8 pointers and return buffers;
 // AmenityValue also receives the actual player and recipient city. No pointers
 // escape a quote. Requalify these functions together with the layout below.
 inline constexpr uintptr_t NativePlayerRegistryRva = 0x305dc0;

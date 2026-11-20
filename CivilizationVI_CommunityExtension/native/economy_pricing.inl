@@ -1,7 +1,8 @@
 // Generic read-only economic quotes for gameplay callers. CSC's transaction
 // graph stays in Lua; CE only normalizes and discounts its declared streams.
-// The target functions are identified in target_identity.h. Ghidra reference
-// SHA324c51e9 / supported hotfix SHA092abfbb share these exact instructions.
+// target_identity.h identifies the current XP2 image and quote functions.
+// The 17 November interval trace explains the original ABI. The Steam
+// 26595377 relocation ledger records the addresses for this build.
 // This include is inside DistrictScores' private namespace after the common
 // pointer and HKS transport helpers. No worker thread calls into gameplay Lua.
 using RegistryFn = const unsigned char* (__cdecl *)();
@@ -183,8 +184,9 @@ int l_amenity_interval_value(lua_State* L) { return amenity_stream_value(L, true
 
 // Service quotes deliberately bypass the modifier attachment interpreter. Lua
 // supplies eligibility/recipients; these calls only price an admitted effect.
-// XP2 reference324c51e9 and supported092abfbb have identical .text SHA256
-// d5bc8feddb8c030dbf2afc3fa9d9110eadbdb349cdb8aa56d5928625290c3d79.
+// These entries use the current target_identity.h image qualification.
+// The earlier pseudo-yield and Food-surplus traces establish the call shapes;
+// the relocation ledger records their Steam 26595377 entry points.
 namespace ServicePricingLayout {
 constexpr uintptr_t NormalizePseudoYieldRva = 0x52af20;
 constexpr uintptr_t PseudoYieldDefinitionsRva = 0x7d14c0;

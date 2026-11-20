@@ -4,6 +4,7 @@
 #include <set>
 #include <cstring>
 #include "Runtime.h"
+#include "native/target_identity.h"
 #include "MemoryManipulation.h"
 #include "ProxyTypes.h"
 #include <cmath>
@@ -122,7 +123,8 @@ static void Hook_RegisterScriptDataForUI(hks::lua_State* mainState, hks::lua_Sta
 #pragma region Offsets
 constexpr uintptr_t CURRENT_GAME_OFFSET = 0xb8aa60;
 
-constexpr uintptr_t REGISTER_SCRIPT_DATA_OFFSET = 0x5bdb00;
+// The optional AI capability checks this same entry before CE detours it.
+constexpr uintptr_t REGISTER_SCRIPT_DATA_OFFSET = AI::DistrictScores::GameCoreLayout::RegisterScriptDataRva;
 constexpr uintptr_t C_CALL_WITH_ERROR_HANDLING_OFFSET = 0x9ad8e0;
 constexpr uintptr_t REGISTER_SCRIPT_DATA_FOR_UI_OFFSET = 0x5bddc0;
 constexpr uintptr_t SET_MAX_TURNS_OFFSET = 0x5979a0;

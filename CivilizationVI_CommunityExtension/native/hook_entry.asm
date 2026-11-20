@@ -1,23 +1,30 @@
-; MSVC/MASM Win64 entry. Preserve caller R12 and the seven original arguments.
-; The stack allocation and unwind metadata match the qualified native shim.
+; XP2's plot-analysis caller leaves its row in R12. Pass that row and the
+; original return address after NetValue's seven Win64 arguments.
+; These offsets use RSP after frame allocation. Leave RCX/RDX/R8/R9 intact
+; and copy incoming arguments 5-7 after the outgoing shadow space.
+NetFrameSize EQU 58h
+NetCallerReturn EQU NetFrameSize
+NetIncomingArg5 EQU NetFrameSize + 28h
+NetIncomingArg6 EQU NetFrameSize + 30h
+NetIncomingArg7 EQU NetFrameSize + 38h
 EXTERN AIDistrictScoreNet:PROC
 PUBLIC AIDistrictScoreNetEntry
 .code
 AIDistrictScoreNetEntry PROC FRAME
-    sub rsp, 58h
-    .allocstack 58h
+    sub rsp, NetFrameSize
+    .allocstack NetFrameSize
     .endprolog
-    mov rax, [rsp + 80h]
+    mov rax, [rsp + NetIncomingArg5]
     mov [rsp + 20h], rax
-    mov rax, [rsp + 88h]
+    mov rax, [rsp + NetIncomingArg6]
     mov [rsp + 28h], rax
-    mov rax, [rsp + 90h]
+    mov rax, [rsp + NetIncomingArg7]
     mov [rsp + 30h], rax
     mov [rsp + 38h], r12
-    mov rax, [rsp + 58h]
+    mov rax, [rsp + NetCallerReturn]
     mov [rsp + 40h], rax
     call AIDistrictScoreNet
-    add rsp, 58h
+    add rsp, NetFrameSize
     ret
 AIDistrictScoreNetEntry ENDP
 

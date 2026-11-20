@@ -13,10 +13,30 @@ constexpr uintptr_t BuildFromCityUnitReturnRva = 0x55bedc;
 constexpr size_t PlayerIdOffset = 0xd8;
 constexpr size_t ResearchRowSize = 0x50, FullValueOffset = 0x14;
 struct ResearchLayout {
-    size_t player, rows, count, goal, owned, turns, step;
+    // Fields in the queue owner's object.
+    size_t player, rows, count;
+    // Fields in one candidate row. A long-term goal can have a different
+    // next step. The native comparator excludes by step, while offers match goal.
+    size_t goal, owned, turns, step;
 };
-constexpr ResearchLayout Technology{0x98, 0x200, 0x210, 0x00, 0x18, 0x1c, 0x04};
-constexpr ResearchLayout Civic{0x90, 0x4f0, 0x500, 0x08, 0x0c, 0x18, 0x1c};
+constexpr ResearchLayout Technology{
+    .player = 0x98,
+    .rows = 0x200,
+    .count = 0x210,
+    .goal = 0x00,
+    .owned = 0x18,
+    .turns = 0x1c,
+    .step = 0x04,
+};
+constexpr ResearchLayout Civic{
+    .player = 0x90,
+    .rows = 0x4f0,
+    .count = 0x500,
+    .goal = 0x08,
+    .owned = 0x0c,
+    .turns = 0x18,
+    .step = 0x1c,
+};
 constexpr size_t ImprovementTreeCityOffset = 0x2f0, ImprovementTreePlotOffset = 0x308;
 constexpr size_t ImprovementTreeKindOffset = 0x2b8;
 constexpr size_t UnitRequestIdOffset = 0x110;
@@ -64,6 +84,8 @@ void Published(const Policy& packet) {
     WorkerDispatch::Published(packet);
 }
 
+// A hook uses thread-local context only during the original native call.
+// Restore the previous context when a nested native call returns.
 template <typename Scope> class ScopedContext {
     const Scope*& slot;
     const Scope* previous;

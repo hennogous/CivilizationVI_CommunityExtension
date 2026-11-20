@@ -820,7 +820,7 @@ int* __cdecl hook_present(void* object, int* out, int district, void* plot) {
 }
 } // namespace
 
-/* Mutation is restricted to the ordinary caller returning to RVA 3e30be.
+/* Mutation is restricted to NetValueFromPlotAnalysisReturnRva in target_identity.h.
  * Other calls to NetValue retain native behavior. The shim supplies caller R12,
  * which is the plot-analysis row at this exact call site. Compare row coords,
  * owner/city IDs and native eligibility before copying an admitted Entry.
