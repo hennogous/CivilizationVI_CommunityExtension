@@ -1,5 +1,19 @@
 # Civilization VI: Community Extension
 
+## CSC development branch
+
+`csc-dev` is the working branch for the Civ Supply Chains development build.
+It descends from WildW's `develop` and brings the tested CSC guidance,
+including the Builder finishing scheduler, into one branch. The current native
+profile targets the Windows DX11 and Gathering Storm binaries in Steam build
+`26595377`. [Relocation ledger](native-relocation.json) · [Port and test report](https://github.com/hennogous/Henno-Mods/blob/main/project/docs/research/mods/csc-ce-steam-26595377-port-20261120.md)
+
+Build Release x64 with the Visual Studio v143 project and Windows SDK. The
+verified local setup uses MinHook 1.3.4 for `x64-windows-static`, staged as
+`CivilizationVI_CommunityExtension/lib/Release/libMinHook.x64.lib`. Set
+`CE_OUTPUT_DIR` to the staging directory. The game loads its installed Gathering
+Storm GameCore at runtime. [CE native implementation](CivilizationVI_CommunityExtension/native/README.md)
+
 This mod is currently in beta. Report bugs on the [issue tracker](https://github.com/Wild-W/CivilizationVI_CommunityExtension/issues). You can also contact me directly or on the steam workshop page. I prefer if you do it on the issue tracker though.
 
 [Visit the wiki!](https://github.com/Wild-W/CivilizationVI_CommunityExtension/wiki)
