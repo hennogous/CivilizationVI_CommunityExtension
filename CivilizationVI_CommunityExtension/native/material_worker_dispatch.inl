@@ -26,22 +26,13 @@ constexpr int WorkerPriority = 2, MaxOffers = 4, MaxScan = 512;
 using Update = bool (*)(const Byte*, int);
 Update originalManager{}, originalTree{};
 bool ready{};
-std::atomic<bool> published{};
+std::atomic<bool> published{}, loansPublished{};
 Receipt finishes{};
 unsigned faults{};
 // Keep custody attempts until the game clears its policy. Each key costs
 // one entry only after a job is moved and there is at most one move per turn.
 std::array<std::unordered_set<uint64_t>, MaxPlayers> finishingAttempts;
 std::array<int, MaxPlayers> lastTurn{};
-
-void Published(const Policy& packet) {
-    finishes = {};
-    if (!packet.width) {
-        for (auto& attempts : finishingAttempts) attempts.clear();
-        lastTurn.fill(-1);
-    }
-    published.store(packet.materialWorkerCount > 0, std::memory_order_relaxed);
-}
 
 bool active_at_priority(const Byte* tree) {
     if (!readable(tree, ImprovementTreePlotOffset + sizeof(const Byte*), false) ||
@@ -66,6 +57,22 @@ const Byte* find_unit(const Byte* collection, const MaterialWorkerOffer& offer) 
     }
     return nullptr;
 }
+
+#include "material_worker_loan.inl"
+
+void Published(const Policy& packet) {
+    finishes = {};
+    Loan::loans = {};
+    Loan::micros = 0;
+    Loan::attempted.fill(false);
+    if (!packet.width) {
+        for (auto& attempts : finishingAttempts) attempts.clear();
+        lastTurn.fill(-1);
+    }
+    published.store(packet.materialWorkerCount > 0, std::memory_order_relaxed);
+    loansPublished.store(packet.materialLoanCount > 0, std::memory_order_relaxed);
+}
+
 
 struct Assignment {
     MaterialWorkerOffer offer{};
@@ -128,9 +135,16 @@ const Byte* substitute_tree(const Pass& pass, const Byte* tree) {
 bool update_tree(const Byte* tree, int priority) {
     // Restrict the argument swap to the manager's qualified traversal call.
     // Each tree still executes once. Do not rewrite native lists or priorities.
-    if (current && priority == WorkerPriority && _ReturnAddress() ==
+    if (priority != WorkerPriority || _ReturnAddress() !=
         Runtime::GetGameCoreGlobalAt<void*>(ManagerUpdateReturnRva))
+        return originalTree(tree, priority);
+    if (current)
         tree = substitute_tree(*current, tree);
+    if (!Loan::current || Loan::current->offer.worker.unit < 0)
+        return originalTree(tree, priority);
+    // The recruit hook sees the original tree whose selector made the call.
+    const Loan::TreeContext context{tree};
+    ScopedContext scope(Loan::activeTree, context);
     return originalTree(tree, priority);
 }
 
@@ -200,7 +214,8 @@ bool test_existing_custody() {
 #endif
 
 bool update_manager(const Byte* manager, int priority) {
-    if (priority != WorkerPriority || !published.load(std::memory_order_relaxed) || current ||
+    if (priority != WorkerPriority || current || Loan::current ||
+        (!published.load(std::memory_order_relaxed) && !loansPublished.load(std::memory_order_relaxed)) ||
         !readable(manager, ManagerTreeHead + sizeof(const Byte*), false))
         return originalManager(manager, priority);
     const auto* player = read_field<const Byte*>(manager, ManagerPlayer);
@@ -244,6 +259,8 @@ bool update_manager(const Byte* manager, int priority) {
         selected = candidate;
         break;
     }
+    const auto loan = Loan::loan_pass(pid, turn, collection);
+    ScopedContext loanScope(Loan::current, loan);
     // The two calls are swapped only inside this thread's manager pass.
     // A receipt reports the completed swap; the game can still reject work.
     if (!selected.job) return originalManager(manager, priority);
@@ -273,6 +290,8 @@ void Install(const Byte* base) {
         };
         ready = Runtime::InstallHookGroup(hooks);
     }
+    if (ready)
+        Loan::Install(base);
 }
 
 int stage_offer(lua_State* L) {

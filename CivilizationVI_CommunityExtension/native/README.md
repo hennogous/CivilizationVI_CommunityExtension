@@ -45,6 +45,33 @@ and must not be added a second time. Repeated native counter samples for the
 same version are cumulative; retain their maximum.
 
 
+## Material restoration and held Builders
+
+Lua can stage one reachable worker per AI empire with
+CE_AIMaterialWorkerLoanOffer(player, city, plot, improvement, unit, unitType,
+x, y, artifact). The existing packet must also have a positive supplier
+entry for the exact restoration job. The last argument identifies an
+Antiquity Site with no Builder harvest action, or -1. The other coordinates
+are the worker position when Lua checked its route. The offer expires when
+the policy packet is replaced.
+
+The [loan consumer](material_worker_loan.inl) follows the same priority
+pass as worker finishing. It observes the completed native district
+action-dispatch call. A district must hold exactly one ordinary routed
+worker and have no clearing action on the plot. Native permission and equal
+priority still apply. CE permits one specific native release comparison
+to expose that unit to the regular evaluator. The district, improvement
+and production bids remain in their own native decisions.
+
+CE_AIMaterialDevelopmentStatus() advertises workerLoanReady, the published
+workerLoanOffers count, and workerLoan and workerLoanFirst for the offer
+delivered to the native evaluator. The first receipt identifies player,
+city, plot, improvement, worker, holder controller, receiver controller,
+and turn. Use operation and supply readback for actual follow-through.
+workerLoanMicros records time spent in the qualifying release path for
+that publication. Use the full game A/B to measure additional turn time.
+See the [matched Axum experiment](https://github.com/hennogous/Henno-Mods/blob/main/project/docs/research/mods/csc-ai-axum-builder-availability-20261120.md#letting-the-supplier-recruit-from-an-idle-clearance-pass).
+
 ## Explicit recurring intervals — 17 November
 
 `CE_AIYieldIntervalValue(player,city,yield,amountQ8,ready,horizon,discountQ8)`
@@ -421,7 +448,7 @@ try {
 } finally { Pop-Location }
 ```
 
-Expected results are 166 district-score checks and four hook-group checks.
+Expected results are 265 district-score checks and four hook-group checks.
 The instruction-call check exercises byte refusal, near-relay delivery and
 restoration with an executable synthetic caller.
 The three failure-path diagnostics are expected in the isolated host.

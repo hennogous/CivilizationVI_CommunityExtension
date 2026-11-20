@@ -335,16 +335,19 @@ int stage_builder(lua_State* L) {
 }
 
 int status(lua_State* L) {
-    char output[1280];
+    char output[1536];
     {
         std::shared_lock guard(policyMutex);
         int n = snprintf(output, sizeof output,
             "{\"abi\":1,\"version\":%d,\"techReady\":%d,\"civicReady\":%d,\"builderReady\":%d,"
             "\"researchLimitQ8\":%d,\"builderLimitQ8\":%d,\"researchOffers\":%d,\"builderOffers\":%d,\"comparisonMicros\":%llu,"
-            "\"workerReady\":%d,\"workerFinishOnly\":1,\"workerOffers\":%d,\"workerFaults\":%u",
+            "\"workerReady\":%d,\"workerFinishOnly\":1,\"workerOffers\":%d,\"workerFaults\":%u,"
+            "\"workerLoanReady\":%d,\"workerLoanOffers\":%d,\"workerLoanMicros\":%llu",
             policy.version, techReady, civicReady, builderReady, MaxResearchQ8, MaxRequestQ8,
             policy.materialResearchCount, policy.materialRequestCount, static_cast<unsigned long long>(nativeMicros),
-            WorkerDispatch::ready && !WorkerDispatch::faults, policy.materialWorkerCount, WorkerDispatch::faults);
+            WorkerDispatch::ready && !WorkerDispatch::faults, policy.materialWorkerCount, WorkerDispatch::faults,
+            WorkerDispatch::Loan::ready, policy.materialLoanCount,
+            static_cast<unsigned long long>(WorkerDispatch::Loan::micros));
         const auto append = [&](const char* name, const Receipt& receipt) {
             const auto& a = receipt.first;
             n += snprintf(output + n, sizeof output - n,
@@ -355,6 +358,7 @@ int status(lua_State* L) {
         append("civic", researchReceipts[1]);
         append("builder", builderReceipt);
         append("workerFinish", WorkerDispatch::finishes);
+        append("workerLoan", WorkerDispatch::Loan::loans);
         output[n] = '}';
         output[n + 1] = 0;
     }

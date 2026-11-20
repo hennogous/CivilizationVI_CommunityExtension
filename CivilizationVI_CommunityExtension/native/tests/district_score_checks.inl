@@ -950,6 +950,7 @@ int run_self_test() {
     CHECK(MaterialDevelopment::test_builder_scope());
     CHECK(MaterialDevelopment::WorkerDispatch::test_order());
     CHECK(MaterialDevelopment::WorkerDispatch::test_existing_custody());
+    CHECK(MaterialDevelopment::WorkerDispatch::Loan::test_clearance_gate());
 
 #undef CHECK
     return n;

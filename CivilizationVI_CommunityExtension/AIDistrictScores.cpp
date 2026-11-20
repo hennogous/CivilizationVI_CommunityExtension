@@ -121,12 +121,16 @@ struct ManagedDistrictType {
 struct MaterialResearchOffer { int player, kind, index, deltaQ8; };
 struct MaterialBuilderOffer { int player, city, plot, improvement, unit, deltaQ8; };
 struct MaterialWorkerOffer { int player, city, plot, improvement, unit, unitType, x, y; };
+struct MaterialWorkerLoan { MaterialWorkerOffer worker; int artifact; };
 struct Policy {
     // Bound each material decision list to four entries per AI player.
     int materialResearchCount{}, materialRequestCount{}, materialWorkerCount{};
     std::array<MaterialResearchOffer, MaxPlayers * 4> materialResearch{};
     std::array<MaterialBuilderOffer, MaxPlayers * 4> materialRequests{};
     std::array<MaterialWorkerOffer, MaxPlayers * 4> materialWorkers{};
+    // Each empire can publish one reachable restoration attempt for this packet.
+    std::array<MaterialWorkerLoan, MaxPlayers> materialLoans{};
+    int materialLoanCount{};
     int version{}, width{}, height{}, districts{}, count{};
     bool hasLateEntries{};
     int managedCount{};
@@ -156,7 +160,7 @@ void clear_policy(Policy& value) {
     // the entire fixed table as a temporary on the gameplay Lua stack.
     value.version = value.width = value.height = value.districts = value.count = value.builderCount = 0;
     value.nominationCount = value.repairCount = value.exclusionCount = value.ownershipCount = value.declineCount = 0;
-    value.materialResearchCount = value.materialRequestCount = value.materialWorkerCount = 0;
+    value.materialResearchCount = value.materialRequestCount = value.materialWorkerCount = value.materialLoanCount = 0;
     value.hasLateEntries = false;
     value.managedCount = 0;
     value.protectWonders = false;
@@ -1570,6 +1574,7 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, MaterialDevelopment::stage_research, "CE_AIMaterialResearchBid", hks::LUA_GLOBAL, "CE_AIMaterialResearchBid");
     PushLuaMethod(L, MaterialDevelopment::stage_builder, "CE_AIMaterialBuilderRequestBid", hks::LUA_GLOBAL, "CE_AIMaterialBuilderRequestBid");
     PushLuaMethod(L, MaterialDevelopment::WorkerDispatch::stage_offer, "CE_AIMaterialWorkerFinishOffer", hks::LUA_GLOBAL, "CE_AIMaterialWorkerFinishOffer");
+    PushLuaMethod(L, MaterialDevelopment::WorkerDispatch::Loan::stage_offer, "CE_AIMaterialWorkerLoanOffer", hks::LUA_GLOBAL, "CE_AIMaterialWorkerLoanOffer");
     PushLuaMethod(L, MaterialDevelopment::status, "CE_AIMaterialDevelopmentStatus", hks::LUA_GLOBAL, "CE_AIMaterialDevelopmentStatus");
     PushLuaMethod(L, l_builder_allow, "CE_AIBuilderProtectionAllow", hks::LUA_GLOBAL, "CE_AIBuilderProtectionAllow");
     PushLuaMethod(L, l_builder_status, "CE_AIBuilderProtectionStatus", hks::LUA_GLOBAL, "CE_AIBuilderProtectionStatus");
