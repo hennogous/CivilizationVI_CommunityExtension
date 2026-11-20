@@ -10,7 +10,7 @@ namespace CivMap::Improvement::Builder {
 			);
 	}
 
-	constexpr uintptr_t CAN_HAVE_DISTRICT_OFFSET = 0x25a360;
+	constexpr uintptr_t CAN_HAVE_DISTRICT_OFFSET = 0x25a340;
 	extern bool CanHaveDistrict(
 		void* builder, Plot::Instance* plot, int districtIndex,
 		int playerId, bool b1, bool b2, bool b3, bool b4, City::Instance* city

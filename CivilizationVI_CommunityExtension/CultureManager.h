@@ -13,9 +13,9 @@ namespace CultureManager {
 	extern Types::FindOrAddGreatWork FindOrAddGreatWork;
 	extern Types::SetGreatWorkPlayer SetGreatWorkPlayer;
 
-	constexpr uintptr_t GET_OFFSET = 0x1c8250;
-	constexpr uintptr_t FIND_OR_ADD_GREAT_WORK_OFFSET = 0x1c80e0;
-	constexpr uintptr_t SET_GREAT_WORK_PLAYER_OFFSET = 0x1c8c80;
+	constexpr uintptr_t GET_OFFSET = 0x1c8910;
+	constexpr uintptr_t FIND_OR_ADD_GREAT_WORK_OFFSET = 0x1c87a0;
+	constexpr uintptr_t SET_GREAT_WORK_PLAYER_OFFSET = 0x1c9340;
 
 	extern int lFindOrAddGreatWork(hks::lua_State* L);
 	extern int lSetGreatWorkPlayer(hks::lua_State* L);

@@ -2,9 +2,9 @@
 // player, tree. The qualified XP2 routine returns a state in EAX.
 // AI-N097 and AI-C074 identify the ready/failed paths and the exact live
 // fixture. This adapter runs the original worker selection and cleanup.
-constexpr uintptr_t ClearPlotUpdateRva = 0x55eaf0;
-constexpr uintptr_t ClearPlotReadyWorkerStoreRva = 0x55ed6d;
-constexpr uintptr_t PlayerIsHumanRva = 0x2f9820;
+constexpr uintptr_t ClearPlotUpdateRva = 0x55eb30;
+constexpr uintptr_t ClearPlotReadyWorkerStoreRva = 0x55edad;
+constexpr uintptr_t PlayerIsHumanRva = 0x2f9830;
 constexpr size_t ClearTargetBindings = 0x20;
 constexpr size_t ClearTargetIndex = 0x2c;
 constexpr size_t ClearHarvestBindings = 0x30;

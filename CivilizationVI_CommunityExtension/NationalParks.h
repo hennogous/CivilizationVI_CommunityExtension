@@ -45,16 +45,16 @@ namespace NationalParks {
 
 	//extern bool DesignateParkInPlots(NationalParks*, int playerId, int* baseCoord, std::vector<int>& plotIds);
 
-	constexpr uintptr_t GET_NATIONAL_PARKS_OFFSET = 0x2363e0;
+	constexpr uintptr_t GET_NATIONAL_PARKS_OFFSET = 0x2363c0;
 	extern Types::Edit Edit;
 
-	constexpr uintptr_t DESIGNATE_PARK_OFFSET = 0x235830;
+	constexpr uintptr_t DESIGNATE_PARK_OFFSET = 0x235810;
 	extern Types::DesignatePark DesignatePark;
 
-	constexpr uintptr_t RESTORE_VISUAL_STATE_OFFSET = 0x2389f0;
+	constexpr uintptr_t RESTORE_VISUAL_STATE_OFFSET = 0x2389d0;
 	extern Types::RestoreVisualState RestoreVisualState;
 
-	constexpr uintptr_t FIND_PARK_OFFSET = 0x2362c0;
+	constexpr uintptr_t FIND_PARK_OFFSET = 0x2362a0;
 	extern Types::FindPark FindPark;
 
 	extern int Register(hks::lua_State* L);

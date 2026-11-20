@@ -1,8 +1,8 @@
 // Improvement NetValue has a normal Win64 entry. Plot and city are explicit
 // arguments. The qualified row evaluator stores the returned int unchanged.
-constexpr uintptr_t ImprovementNetValueRva = 0x52a8c0;
-constexpr uintptr_t ImprovementRowCallRva = 0x3e3423;
-constexpr uintptr_t ImprovementRowReturnRva = 0x3e3428;
+constexpr uintptr_t ImprovementNetValueRva = 0x52a8a0;
+constexpr uintptr_t ImprovementRowCallRva = 0x3e2ce3;
+constexpr uintptr_t ImprovementRowReturnRva = 0x3e2ce8;
 constexpr uintptr_t ImprovementScoreFloorRva = 0xb66cb0;
 constexpr unsigned char ImprovementNetPrefix[] = {
     0x44, 0x89, 0x4c, 0x24, 0x20, 0x4c, 0x89, 0x44,
@@ -125,12 +125,12 @@ bool install_builder_hook(const unsigned char* base) {
 
 // The tile-bearing building caller writes to the plot's Wonder score. The
 // other caller (3e3edd) passes (-9999,-9999) for ordinary buildings/repairs.
-constexpr uintptr_t BuildingNetValueRva = 0x52a050;
-constexpr uintptr_t WonderRowCallRva = 0x3e419a;
-constexpr uintptr_t WonderRowReturnRva = 0x3e419f;
+constexpr uintptr_t BuildingNetValueRva = 0x52a030;
+constexpr uintptr_t WonderRowCallRva = 0x3e3a5a;
+constexpr uintptr_t WonderRowReturnRva = 0x3e3a5f;
 // Pinned XP2 hotfix ordinary city-building forecast caller. Unlike the
 // Wonder path it supplies sentinel coordinates. Observation never edits it.
-constexpr uintptr_t OrdinaryBuildingForecastCallRva = 0x3e3edd;
+constexpr uintptr_t OrdinaryBuildingForecastCallRva = 0x3e379d;
 constexpr uintptr_t OrdinaryBuildingForecastReturnRva = OrdinaryBuildingForecastCallRva + 5;
 bool ordinary_forecast_ready{};
 constexpr unsigned char BuildingNetPrefix[] = {

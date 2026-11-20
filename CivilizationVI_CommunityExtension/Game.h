@@ -39,16 +39,16 @@ namespace Game {
 		extern Types::istable istable;
 	}
 
-	constexpr uintptr_t F_AUTO_VARIABLE_EDIT_OFFSET = 0x72a920;
+	constexpr uintptr_t F_AUTO_VARIABLE_EDIT_OFFSET = 0x72a960;
 	extern Types::FAutoVariable_edit FAutoVariable_edit;
 
 	constexpr uintptr_t GET_GAMEPLAY_DATABASE_OFFSET = 0x44de0;
 	extern Types::GetGameplayDatabase GetGameplayDatabase;
 
-	constexpr uintptr_t LUA_LOCK_ACCESS_OFFSET = 0x9adf70;
+	constexpr uintptr_t LUA_LOCK_ACCESS_OFFSET = 0x9adfd0;
 	extern Types::LuaLockAccess LuaLockAccess;
 
-	constexpr uintptr_t LUA_UNLOCK_ACCESS_OFFSET = 0x9ae060;
+	constexpr uintptr_t LUA_UNLOCK_ACCESS_OFFSET = 0x9ae0c0;
 	extern Types::LuaUnlockAccess LuaUnlockAccess;
 
 	extern void Create();
@@ -60,9 +60,9 @@ namespace Game::Initializers {
 		typedef void(__cdecl* NewGamePlayerRandomAgendas)(Game::Instance* game);
 	}
 
-	constexpr uintptr_t INITIALIZE_PLAYER_RANDOM_AGENDAS_OFFSET = 0x228800;
+	constexpr uintptr_t INITIALIZE_PLAYER_RANDOM_AGENDAS_OFFSET = 0x228f00;
 	extern void InitializePlayerRandomAgendas(int somethingToDoWithEra, void* agendaDefinitions, int visibilityType, int playerId);
 
-	constexpr uintptr_t NEW_GAME_PLAYER_RANDOM_AGENDAS_OFFSET = 0x228750;
+	constexpr uintptr_t NEW_GAME_PLAYER_RANDOM_AGENDAS_OFFSET = 0x228e50;
 	extern void NewGamePlayerRandomAgendas(Game::Instance* game);
 }

@@ -9,7 +9,7 @@ namespace CityTradeManager {
 		typedef void* (__cdecl* GetInstance)(hks::lua_State*, int, bool);
 	}
 
-	constexpr uintptr_t SET_HAS_CONSTRUCTED_TRADING_POST_OFFSET = 0x14e720;
+	constexpr uintptr_t SET_HAS_CONSTRUCTED_TRADING_POST_OFFSET = 0x14e710;
 
 	extern Types::SetHasConstructedTradingPost SetHasConstructedTradingPost;
 

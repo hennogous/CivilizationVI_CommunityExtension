@@ -1,0 +1,2620 @@
+{
+  "reference": {
+    "sha256": "324c51e9ea3531758842e16c69e6cddbefbb226c5b675c3d6e60111646c2e98c",
+    "timestamp": 1719431003,
+    "image_size": 12976128,
+    "file_size": 12940384,
+    "certificate_size": 14944
+  },
+  "update": {
+    "sha256": "4de40abf7c739f53c1f3f825863ace84dc220e5a42d87620e56fceaf3fbd4dc8",
+    "timestamp": 1794358453,
+    "image_size": 12976128,
+    "file_size": 12941592,
+    "certificate_size": 15640
+  },
+  "targets": [
+    {
+      "file": "AI.h",
+      "name": "DISTRICT_OFFSET",
+      "old": "0x44e4f0",
+      "candidates": [
+        [
+          4515024,
+          371,
+          326
+        ]
+      ],
+      "selected": "0x44e4d0"
+    },
+    {
+      "file": "AI.h",
+      "name": "UNIT_PROMOTION_CLASS_OFFSET",
+      "old": "0x453ca0",
+      "candidates": [
+        [
+          4537472,
+          333,
+          285
+        ]
+      ],
+      "selected": "0x453c80"
+    },
+    {
+      "file": "AI.h",
+      "name": "UNIT_BUILD_YIELD_OFFSET",
+      "old": "0x4539f0",
+      "candidates": [
+        [
+          4536784,
+          332,
+          292
+        ]
+      ],
+      "selected": "0x4539d0"
+    },
+    {
+      "file": "AI.h",
+      "name": "TRADING_PARTNERS_OFFSET",
+      "old": "0x453850",
+      "candidates": [
+        [
+          4536368,
+          300,
+          262
+        ]
+      ],
+      "selected": "0x453830"
+    },
+    {
+      "file": "AI.h",
+      "name": "PLAYER_OR_DIPLO_LEADER_OFFSET",
+      "old": "0x452ce0",
+      "candidates": [
+        [
+          4533440,
+          323,
+          284
+        ]
+      ],
+      "selected": "0x452cc0"
+    },
+    {
+      "file": "AI.h",
+      "name": "GREAT_PERSON_CLASS_OFFSET",
+      "old": "0x44f4c0",
+      "candidates": [
+        [
+          4519072,
+          265,
+          242
+        ]
+      ],
+      "selected": "0x44f4a0"
+    },
+    {
+      "file": "AI.h",
+      "name": "GREAT_PERSON_PATRONAGE_OFFSET",
+      "old": "0x44f570",
+      "candidates": [
+        [
+          4519248,
+          348,
+          305
+        ]
+      ],
+      "selected": "0x44f550"
+    },
+    {
+      "file": "AI.h",
+      "name": "SPY_OPERATION_OFFSET",
+      "old": "0x453820",
+      "candidates": [
+        [
+          4536320,
+          306,
+          260
+        ]
+      ],
+      "selected": "0x453800"
+    },
+    {
+      "file": "AI.h",
+      "name": "MOST_COMMON_LUXURY_OFFSET",
+      "old": "0x452500",
+      "candidates": [
+        [
+          4531424,
+          316,
+          258
+        ]
+      ],
+      "selected": "0x4524e0"
+    },
+    {
+      "file": "AI.h",
+      "name": "MINOR_CIV_BONUS_OFFSET",
+      "old": "0x452080",
+      "candidates": [
+        [
+          4530272,
+          278,
+          248
+        ]
+      ],
+      "selected": "0x452060"
+    },
+    {
+      "file": "AI.h",
+      "name": "GRIEVANCES_TYPE_OFFSET",
+      "old": "0x44fd20",
+      "candidates": [
+        [
+          4521216,
+          287,
+          255
+        ]
+      ],
+      "selected": "0x44fd00"
+    },
+    {
+      "file": "AI.h",
+      "name": "GET_AI_ESPIONAGE_OFFSET",
+      "old": "0x2f7ee0",
+      "candidates": [
+        [
+          3112688,
+          272,
+          202
+        ]
+      ],
+      "selected": "0x2f7ef0"
+    },
+    {
+      "file": "AI.h",
+      "name": "GET_MOST_USED_SPY_MISSION_OFFSET",
+      "old": "0x45ec60",
+      "candidates": [
+        [
+          4580688,
+          107,
+          99
+        ]
+      ],
+      "selected": "0x45e550"
+    },
+    {
+      "file": "CityTradeManager.h",
+      "name": "SET_HAS_CONSTRUCTED_TRADING_POST_OFFSET",
+      "old": "0x14e720",
+      "candidates": [
+        [
+          1369872,
+          334,
+          262
+        ]
+      ],
+      "selected": "0x14e710"
+    },
+    {
+      "file": "CivMap.h",
+      "name": "CAN_HAVE_DISTRICT_OFFSET",
+      "old": "0x25a360",
+      "candidates": [
+        [
+          2466624,
+          339,
+          254
+        ]
+      ],
+      "selected": "0x25a340"
+    },
+    {
+      "file": "CultureManager.h",
+      "name": "GET_OFFSET",
+      "old": "0x1c8250",
+      "candidates": [
+        [
+          1870096,
+          320,
+          249
+        ]
+      ],
+      "selected": "0x1c8910"
+    },
+    {
+      "file": "CultureManager.h",
+      "name": "FIND_OR_ADD_GREAT_WORK_OFFSET",
+      "old": "0x1c80e0",
+      "candidates": [
+        [
+          1869728,
+          355,
+          314
+        ]
+      ],
+      "selected": "0x1c87a0"
+    },
+    {
+      "file": "CultureManager.h",
+      "name": "SET_GREAT_WORK_PLAYER_OFFSET",
+      "old": "0x1c8c80",
+      "candidates": [
+        [
+          1872704,
+          276,
+          238
+        ]
+      ],
+      "selected": "0x1c9340"
+    },
+    {
+      "file": "EconomicManager.h",
+      "name": "GET_OFFSET",
+      "old": "0x62cdf0",
+      "candidates": [
+        [
+          6475296,
+          323,
+          270
+        ]
+      ],
+      "selected": "0x62ce20"
+    },
+    {
+      "file": "EconomicManager.h",
+      "name": "GET_TOURISM_FROM_MONOPOLIES_OFFSET",
+      "old": "0x62dd20",
+      "candidates": [
+        [
+          6479184,
+          347,
+          309
+        ]
+      ],
+      "selected": "0x62dd50"
+    },
+    {
+      "file": "EmergencyManager.h",
+      "name": "GET_OFFSET",
+      "old": "0x19a7b0",
+      "candidates": [
+        [
+          1683056,
+          272,
+          248
+        ]
+      ],
+      "selected": "0x19ae70"
+    },
+    {
+      "file": "EmergencyManager.h",
+      "name": "CHANGE_PLAYER_SCORE_OFFSET",
+      "old": "0x1991f0",
+      "candidates": [
+        [
+          1677488,
+          320,
+          273
+        ]
+      ],
+      "selected": "0x1998b0"
+    },
+    {
+      "file": "EmergencyManager.h",
+      "name": "CHANGE_PLAYER_SCORE_2_OFFSET",
+      "old": "0x199140",
+      "candidates": [
+        [
+          1677312,
+          261,
+          237
+        ]
+      ],
+      "selected": "0x199800"
+    },
+    {
+      "file": "Game.h",
+      "name": "EDIT_INSTANCE_OFFSET",
+      "old": "0xa200",
+      "candidates": [
+        [
+          41472,
+          257,
+          238
+        ]
+      ],
+      "selected": "0xa200"
+    },
+    {
+      "file": "Game.h",
+      "name": "GET_INSTANCE_OFFSET",
+      "old": "0x7aeb0",
+      "candidates": [
+        [
+          503472,
+          202,
+          178
+        ]
+      ],
+      "selected": "0x7aeb0"
+    },
+    {
+      "file": "Game.h",
+      "name": "IS_TABLE_OFFSET",
+      "old": "0x221c0",
+      "candidates": [
+        [
+          139712,
+          289,
+          260
+        ]
+      ],
+      "selected": "0x221c0"
+    },
+    {
+      "file": "Game.h",
+      "name": "F_AUTO_VARIABLE_EDIT_OFFSET",
+      "old": "0x72a920",
+      "candidates": [
+        [
+          7514464,
+          306,
+          273
+        ]
+      ],
+      "selected": "0x72a960"
+    },
+    {
+      "file": "Game.h",
+      "name": "GET_GAMEPLAY_DATABASE_OFFSET",
+      "old": "0x44de0",
+      "candidates": [
+        [
+          282080,
+          238,
+          164
+        ]
+      ],
+      "selected": "0x44de0"
+    },
+    {
+      "file": "Game.h",
+      "name": "LUA_LOCK_ACCESS_OFFSET",
+      "old": "0x9adf70",
+      "candidates": [
+        [
+          10149840,
+          328,
+          253
+        ]
+      ],
+      "selected": "0x9adfd0"
+    },
+    {
+      "file": "Game.h",
+      "name": "LUA_UNLOCK_ACCESS_OFFSET",
+      "old": "0x9ae060",
+      "candidates": [
+        [
+          10150080,
+          324,
+          272
+        ]
+      ],
+      "selected": "0x9ae0c0"
+    },
+    {
+      "file": "Game.h",
+      "name": "INITIALIZE_PLAYER_RANDOM_AGENDAS_OFFSET",
+      "old": "0x228800",
+      "candidates": [
+        [
+          2264832,
+          334,
+          292
+        ]
+      ],
+      "selected": "0x228f00"
+    },
+    {
+      "file": "Game.h",
+      "name": "NEW_GAME_PLAYER_RANDOM_AGENDAS_OFFSET",
+      "old": "0x228750",
+      "candidates": [
+        [
+          2264656,
+          336,
+          282
+        ]
+      ],
+      "selected": "0x228e50"
+    },
+    {
+      "file": "GameDiplomacy.h",
+      "name": "GET_INSTANCE_OFFSET",
+      "old": "0x6d86e0",
+      "candidates": [
+        [
+          7099440,
+          311,
+          257
+        ],
+        [
+          7101600,
+          311,
+          257
+        ],
+        [
+          7103344,
+          311,
+          257
+        ],
+        [
+          7104288,
+          311,
+          257
+        ],
+        [
+          7116608,
+          311,
+          257
+        ],
+        [
+          7121024,
+          311,
+          257
+        ],
+        [
+          7122832,
+          311,
+          257
+        ],
+        [
+          7124384,
+          311,
+          257
+        ],
+        [
+          7126688,
+          311,
+          257
+        ],
+        [
+          7131232,
+          311,
+          257
+        ],
+        [
+          7133152,
+          311,
+          257
+        ],
+        [
+          7154128,
+          311,
+          257
+        ],
+        [
+          7178016,
+          311,
+          257
+        ],
+        [
+          7206896,
+          311,
+          257
+        ],
+        [
+          7211088,
+          311,
+          257
+        ],
+        [
+          7232720,
+          311,
+          257
+        ]
+      ],
+      "selected": "0x6d8720"
+    },
+    {
+      "file": "GameDiplomacy.h",
+      "name": "PUSH_METHODS_OFFSET",
+      "old": "0x745660",
+      "candidates": [
+        [
+          7624352,
+          362,
+          258
+        ]
+      ],
+      "selected": "0x7456a0"
+    },
+    {
+      "file": "GameDiplomacy.h",
+      "name": "EDIT_OFFSET",
+      "old": "0x1d0220",
+      "candidates": [
+        [
+          1902816,
+          258,
+          233
+        ]
+      ],
+      "selected": "0x1d08e0"
+    },
+    {
+      "file": "GameDiplomacy.h",
+      "name": "CHANGE_GRIEVANCE_SCORE_OFFSET",
+      "old": "0x1cea40",
+      "candidates": [
+        [
+          1896704,
+          272,
+          251
+        ]
+      ],
+      "selected": "0x1cf100"
+    },
+    {
+      "file": "Main.cpp",
+      "name": "CURRENT_GAME_OFFSET",
+      "old": "0xb8aa60",
+      "candidates": null,
+      "selected": "0xb8aa60"
+    },
+    {
+      "file": "Main.cpp",
+      "name": "REGISTER_SCRIPT_DATA_OFFSET",
+      "old": "0x5bdac0",
+      "candidates": [
+        [
+          6019840,
+          394,
+          218
+        ]
+      ],
+      "selected": "0x5bdb00"
+    },
+    {
+      "file": "Main.cpp",
+      "name": "C_CALL_WITH_ERROR_HANDLING_OFFSET",
+      "old": "0x9ad880",
+      "candidates": [
+        [
+          10148064,
+          297,
+          231
+        ]
+      ],
+      "selected": "0x9ad8e0"
+    },
+    {
+      "file": "Main.cpp",
+      "name": "REGISTER_SCRIPT_DATA_FOR_UI_OFFSET",
+      "old": "0x5bdd80",
+      "candidates": [
+        [
+          6020544,
+          379,
+          205
+        ]
+      ],
+      "selected": "0x5bddc0"
+    },
+    {
+      "file": "Main.cpp",
+      "name": "SET_MAX_TURNS_OFFSET",
+      "old": "0x597960",
+      "candidates": [
+        [
+          5863840,
+          237,
+          190
+        ]
+      ],
+      "selected": "0x5979a0"
+    },
+    {
+      "file": "Main.cpp",
+      "name": "GLOBAL_PARAMETERS_INITIALIZE_OFFSET",
+      "old": "0x1f02a0",
+      "candidates": [
+        [
+          2034016,
+          428,
+          327
+        ]
+      ],
+      "selected": "0x1f0960"
+    },
+    {
+      "file": "Main.cpp",
+      "name": "GLOBAL_PARAMETERS_GET_OFFSET",
+      "old": "0x1f0120",
+      "candidates": [
+        [
+          2033632,
+          309,
+          297
+        ]
+      ],
+      "selected": "0x1f07e0"
+    },
+    {
+      "file": "Main.cpp",
+      "name": "APPLY_TOURISM_OFFSET",
+      "old": "0x27a0e0",
+      "candidates": [
+        [
+          2598832,
+          365,
+          315
+        ]
+      ],
+      "selected": "0x27a7b0"
+    },
+    {
+      "file": "Main.cpp",
+      "name": "GET_PLAYERS_TO_PROCESS_OFFSET",
+      "old": "0x49d40",
+      "candidates": [
+        [
+          302416,
+          383,
+          284
+        ]
+      ],
+      "selected": "0x49d50"
+    },
+    {
+      "file": "NationalParks.h",
+      "name": "UPDATE_OFFSET",
+      "old": "0x99f60",
+      "candidates": [
+        [
+          630624,
+          309,
+          277
+        ],
+        [
+          637072,
+          309,
+          277
+        ]
+      ],
+      "selected": "0x99f60"
+    },
+    {
+      "file": "NationalParks.h",
+      "name": "PROCESS_OFFSET",
+      "old": "0x9b0c0",
+      "candidates": [
+        [
+          635072,
+          306,
+          250
+        ]
+      ],
+      "selected": "0x9b0c0"
+    },
+    {
+      "file": "NationalParks.h",
+      "name": "FIND_PARK_OFFSET",
+      "old": "0x9a720",
+      "candidates": [
+        [
+          632608,
+          267,
+          247
+        ]
+      ],
+      "selected": "0x9a720"
+    },
+    {
+      "file": "NationalParks.h",
+      "name": "GET_NATIONAL_PARKS_OFFSET",
+      "old": "0x2363e0",
+      "candidates": [
+        [
+          2319296,
+          304,
+          270
+        ]
+      ],
+      "selected": "0x2363c0"
+    },
+    {
+      "file": "NationalParks.h",
+      "name": "DESIGNATE_PARK_OFFSET",
+      "old": "0x235830",
+      "candidates": [
+        [
+          2316304,
+          301,
+          259
+        ]
+      ],
+      "selected": "0x235810"
+    },
+    {
+      "file": "NationalParks.h",
+      "name": "RESTORE_VISUAL_STATE_OFFSET",
+      "old": "0x2389f0",
+      "candidates": [
+        [
+          2329040,
+          394,
+          328
+        ]
+      ],
+      "selected": "0x2389d0"
+    },
+    {
+      "file": "NationalParks.h",
+      "name": "FIND_PARK_OFFSET",
+      "old": "0x2362c0",
+      "candidates": [
+        [
+          2319008,
+          288,
+          266
+        ]
+      ],
+      "selected": "0x2362a0"
+    },
+    {
+      "file": "native\\builder_protection.inl",
+      "name": "ImprovementNetValueRva",
+      "old": "0x52a8c0",
+      "candidates": [
+        [
+          5417120,
+          339,
+          286
+        ]
+      ],
+      "selected": "0x52a8a0"
+    },
+    {
+      "file": "native\\builder_protection.inl",
+      "name": "ImprovementRowCallRva",
+      "old": "0x3e3423",
+      "candidates": [
+        [
+          4074723,
+          372,
+          303
+        ]
+      ],
+      "selected": "0x3e2ce3"
+    },
+    {
+      "file": "native\\builder_protection.inl",
+      "name": "ImprovementRowReturnRva",
+      "old": "0x3e3428",
+      "candidates": [
+        [
+          4074728,
+          372,
+          303
+        ]
+      ],
+      "selected": "0x3e2ce8"
+    },
+    {
+      "file": "native\\builder_protection.inl",
+      "name": "ImprovementScoreFloorRva",
+      "old": "0xb66cb0",
+      "candidates": null,
+      "selected": "0xb66cb0"
+    },
+    {
+      "file": "native\\builder_protection.inl",
+      "name": "BuildingNetValueRva",
+      "old": "0x52a050",
+      "candidates": [
+        [
+          5414960,
+          344,
+          283
+        ]
+      ],
+      "selected": "0x52a030"
+    },
+    {
+      "file": "native\\builder_protection.inl",
+      "name": "WonderRowCallRva",
+      "old": "0x3e419a",
+      "candidates": [
+        [
+          4078170,
+          329,
+          292
+        ]
+      ],
+      "selected": "0x3e3a5a"
+    },
+    {
+      "file": "native\\builder_protection.inl",
+      "name": "WonderRowReturnRva",
+      "old": "0x3e419f",
+      "candidates": [
+        [
+          4078175,
+          328,
+          295
+        ]
+      ],
+      "selected": "0x3e3a5f"
+    },
+    {
+      "file": "native\\builder_protection.inl",
+      "name": "OrdinaryBuildingForecastCallRva",
+      "old": "0x3e3edd",
+      "candidates": [
+        [
+          4077469,
+          367,
+          304
+        ]
+      ],
+      "selected": "0x3e379d"
+    },
+    {
+      "file": "native\\clear_plot_harvest.inl",
+      "name": "ClearPlotUpdateRva",
+      "old": "0x55eaf0",
+      "candidates": [
+        [
+          5630768,
+          319,
+          283
+        ]
+      ],
+      "selected": "0x55eb30"
+    },
+    {
+      "file": "native\\clear_plot_harvest.inl",
+      "name": "ClearPlotReadyWorkerStoreRva",
+      "old": "0x55ed6d",
+      "candidates": [
+        [
+          5631405,
+          294,
+          245
+        ]
+      ],
+      "selected": "0x55edad"
+    },
+    {
+      "file": "native\\clear_plot_harvest.inl",
+      "name": "PlayerIsHumanRva",
+      "old": "0x2f9820",
+      "candidates": [
+        [
+          3119152,
+          251,
+          197
+        ]
+      ],
+      "selected": "0x2f9830"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "CheckForDistrictRva",
+      "old": "0x3e0ee0",
+      "candidates": [
+        [
+          4065184,
+          406,
+          333
+        ]
+      ],
+      "selected": "0x3e07a0"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "LookupPlayerRva",
+      "old": "0x44f00",
+      "candidates": [
+        [
+          282368,
+          206,
+          151
+        ]
+      ],
+      "selected": "0x44f00"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "EditMapRva",
+      "old": "0x44d40",
+      "candidates": [
+        [
+          281920,
+          236,
+          170
+        ]
+      ],
+      "selected": "0x44d40"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "CanZoneRva",
+      "old": "0xf9d50",
+      "candidates": [
+        [
+          1023312,
+          376,
+          305
+        ]
+      ],
+      "selected": "0xf9d50"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "FindBehaviorTreeRva",
+      "old": "0x564020",
+      "candidates": [
+        [
+          5652576,
+          315,
+          273
+        ]
+      ],
+      "selected": "0x564060"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "CreateOneUseTreeRva",
+      "old": "0x563840",
+      "candidates": [
+        [
+          5650560,
+          284,
+          254
+        ]
+      ],
+      "selected": "0x563880"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "DestroyTreeRva",
+      "old": "0x563960",
+      "candidates": [
+        [
+          5650848,
+          273,
+          250
+        ]
+      ],
+      "selected": "0x5639a0"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "AddTreeControllerRva",
+      "old": "0x53feb0",
+      "candidates": [
+        [
+          5504752,
+          285,
+          257
+        ]
+      ],
+      "selected": "0x53fef0"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "FindTreeControllerRva",
+      "old": "0x4019f0",
+      "candidates": [
+        [
+          4200912,
+          268,
+          253
+        ]
+      ],
+      "selected": "0x4019d0"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "ConstructAnalysisRva",
+      "old": "0x48c8c0",
+      "candidates": [
+        [
+          4769968,
+          320,
+          315
+        ]
+      ],
+      "selected": "0x48c8b0"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "CopyTreeAnalysisRva",
+      "old": "0xd6160",
+      "candidates": [
+        [
+          876896,
+          301,
+          268
+        ],
+        [
+          909344,
+          301,
+          268
+        ]
+      ],
+      "selected": "0xd6160"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "FreeAnalysisBufferRva",
+      "old": "0x9908f0",
+      "candidates": [
+        [
+          10029392,
+          83,
+          71
+        ]
+      ],
+      "selected": "0x990950"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "EmptyNativeStringRva",
+      "old": "0x993b30",
+      "candidates": [
+        [
+          10042256,
+          346,
+          251
+        ]
+      ],
+      "selected": "0x993b90"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "FormatNativeStringRva",
+      "old": "0x993930",
+      "candidates": [
+        [
+          10041744,
+          284,
+          234
+        ]
+      ],
+      "selected": "0x993990"
+    },
+    {
+      "file": "native\\district_repair_admission.inl",
+      "name": "DestroyNativeStringRva",
+      "old": "0x993590",
+      "candidates": [
+        [
+          10040816,
+          280,
+          243
+        ]
+      ],
+      "selected": "0x9935f0"
+    },
+    {
+      "file": "native\\economy_pricing.inl",
+      "name": "NormalizePseudoYieldRva",
+      "old": "0x52af40",
+      "candidates": [
+        [
+          5418784,
+          322,
+          278
+        ]
+      ],
+      "selected": "0x52af20"
+    },
+    {
+      "file": "native\\economy_pricing.inl",
+      "name": "PseudoYieldDefinitionsRva",
+      "old": "0x7d1480",
+      "candidates": [
+        [
+          8197312,
+          180,
+          156
+        ]
+      ],
+      "selected": "0x7d14c0"
+    },
+    {
+      "file": "native\\economy_pricing.inl",
+      "name": "FoodSurplusRva",
+      "old": "0x124060",
+      "candidates": [
+        [
+          1196128,
+          293,
+          229
+        ]
+      ],
+      "selected": "0x124060"
+    },
+    {
+      "file": "native\\economy_pricing.inl",
+      "name": "FoodYieldIndexRva",
+      "old": "0xb8f648",
+      "candidates": null,
+      "selected": "0xb8f648"
+    },
+    {
+      "file": "native\\material_development.inl",
+      "name": "QueueTechRva",
+      "old": "0x4fa9a0",
+      "candidates": [
+        [
+          5219024,
+          389,
+          316
+        ]
+      ],
+      "selected": "0x4fa2d0"
+    },
+    {
+      "file": "native\\material_development.inl",
+      "name": "CompareTechRowsRva",
+      "old": "0x4f60d0",
+      "candidates": [
+        [
+          5200384,
+          276,
+          244
+        ]
+      ],
+      "selected": "0x4f5a00"
+    },
+    {
+      "file": "native\\material_development.inl",
+      "name": "QueueCivicRva",
+      "old": "0x418860",
+      "candidates": [
+        [
+          4294720,
+          370,
+          308
+        ]
+      ],
+      "selected": "0x418840"
+    },
+    {
+      "file": "native\\material_development.inl",
+      "name": "CompareCivicRowsRva",
+      "old": "0x40de20",
+      "candidates": [
+        [
+          4251136,
+          280,
+          257
+        ]
+      ],
+      "selected": "0x40de00"
+    },
+    {
+      "file": "native\\material_development.inl",
+      "name": "BuildFromCityRva",
+      "old": "0x55ba40",
+      "candidates": [
+        [
+          5618304,
+          346,
+          284
+        ]
+      ],
+      "selected": "0x55ba80"
+    },
+    {
+      "file": "native\\material_development.inl",
+      "name": "InitializeUnitRequestRva",
+      "old": "0x3f9300",
+      "candidates": [
+        [
+          4166368,
+          427,
+          374
+        ]
+      ],
+      "selected": "0x3f92e0"
+    },
+    {
+      "file": "native\\material_development.inl",
+      "name": "BuildFromCityUnitReturnRva",
+      "old": "0x55be9c",
+      "candidates": [
+        [
+          5619420,
+          320,
+          258
+        ]
+      ],
+      "selected": "0x55bedc"
+    },
+    {
+      "file": "native\\material_worker_dispatch.inl",
+      "name": "ManagerDoTurnRva",
+      "old": "0x5639b0",
+      "candidates": [
+        [
+          5650928,
+          288,
+          268
+        ]
+      ],
+      "selected": "0x5639f0"
+    },
+    {
+      "file": "native\\material_worker_dispatch.inl",
+      "name": "TreeUpdateRva",
+      "old": "0x544360",
+      "candidates": [
+        [
+          5522336,
+          417,
+          353
+        ]
+      ],
+      "selected": "0x5443a0"
+    },
+    {
+      "file": "native\\material_worker_dispatch.inl",
+      "name": "ManagerUpdateReturnRva",
+      "old": "0x5639ea",
+      "candidates": [
+        [
+          5650986,
+          283,
+          261
+        ]
+      ],
+      "selected": "0x563a2a"
+    },
+    {
+      "file": "native\\material_worker_dispatch.inl",
+      "name": "GameInstanceRva",
+      "old": "0xb8aa68",
+      "candidates": null,
+      "selected": "0xb8aa68"
+    },
+    {
+      "file": "native\\native_site_pricing.inl",
+      "name": "IntrinsicDistrictRva",
+      "old": "0x52d500",
+      "candidates": [
+        [
+          5428448,
+          375,
+          310
+        ]
+      ],
+      "selected": "0x52d4e0"
+    },
+    {
+      "file": "native\\native_site_pricing.inl",
+      "name": "DistrictDefinitionsRva",
+      "old": "0x7d08e0",
+      "candidates": [
+        [
+          8194336,
+          180,
+          156
+        ]
+      ],
+      "selected": "0x7d0920"
+    },
+    {
+      "file": "native\\native_site_pricing.inl",
+      "name": "EditMapRva",
+      "old": "0x44d40",
+      "candidates": [
+        [
+          281920,
+          236,
+          170
+        ]
+      ],
+      "selected": "0x44d40"
+    },
+    {
+      "file": "native\\native_site_pricing.inl",
+      "name": "PlotLookupRva",
+      "old": "0x52d00",
+      "candidates": [
+        [
+          339216,
+          252,
+          231
+        ]
+      ],
+      "selected": "0x52d10"
+    },
+    {
+      "file": "native\\native_site_pricing.inl",
+      "name": "PlotAttributesRva",
+      "old": "0x5f090",
+      "candidates": [
+        [
+          389264,
+          240,
+          219
+        ]
+      ],
+      "selected": "0x5f090"
+    },
+    {
+      "file": "native\\native_site_pricing.inl",
+      "name": "PlotDistrictTypeRva",
+      "old": "0x5e720",
+      "candidates": [
+        [
+          386848,
+          247,
+          239
+        ]
+      ],
+      "selected": "0x5e720"
+    },
+    {
+      "file": "native\\native_site_pricing.inl",
+      "name": "AlignedFreeImportRva",
+      "old": "0x9b7680",
+      "candidates": null,
+      "selected": "0x9b7680"
+    },
+    {
+      "file": "native\\native_site_pricing.inl",
+      "name": "GlobalsPointerRva",
+      "old": "0xb8aa68",
+      "candidates": null,
+      "selected": "0xb8aa68"
+    },
+    {
+      "file": "native\\purchase_ownership_completion.inl",
+      "name": "OwnershipDecoratorRva",
+      "old": "0x55a030",
+      "candidates": [
+        [
+          5611632,
+          300,
+          258
+        ]
+      ],
+      "selected": "0x55a070"
+    },
+    {
+      "file": "native\\purchase_ownership_completion.inl",
+      "name": "OwnershipPurchaseVtableRva",
+      "old": "0x9fa930",
+      "candidates": null,
+      "selected": "0x9fa910"
+    },
+    {
+      "file": "native\\purchase_ownership_completion.inl",
+      "name": "OwnershipMapLookupRva",
+      "old": "0x52d00",
+      "candidates": [
+        [
+          339216,
+          252,
+          231
+        ]
+      ],
+      "selected": "0x52d10"
+    },
+    {
+      "file": "native\\purchase_ownership_completion.inl",
+      "name": "OwnershipAttributesRva",
+      "old": "0x5f090",
+      "candidates": [
+        [
+          389264,
+          240,
+          219
+        ]
+      ],
+      "selected": "0x5f090"
+    },
+    {
+      "file": "native\\purchase_ownership_completion.inl",
+      "name": "OwnershipPoolLookupRva",
+      "old": "0x4c210",
+      "candidates": [
+        [
+          311840,
+          248,
+          208
+        ]
+      ],
+      "selected": "0x4c220"
+    },
+    {
+      "file": "native\\purchase_ownership_completion.inl",
+      "name": "OwnershipTrackedAssignRva",
+      "old": "0x64a6d0",
+      "candidates": [
+        [
+          6596352,
+          309,
+          279
+        ]
+      ],
+      "selected": "0x64a700"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "NativePlayerRegistryRva",
+      "old": "0x306b80",
+      "candidates": [
+        [
+          3169728,
+          213,
+          200
+        ]
+      ],
+      "selected": "0x305dc0"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "NativeCityFindRva",
+      "old": "0x2c4360",
+      "candidates": [
+        [
+          2899152,
+          257,
+          237
+        ]
+      ],
+      "selected": "0x2c3cd0"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "NormalizeYieldIncomeRva",
+      "old": "0x52b110",
+      "candidates": [
+        [
+          5419248,
+          291,
+          267
+        ]
+      ],
+      "selected": "0x52b0f0"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "DiscountTimedIncomeRva",
+      "old": "0x528660",
+      "candidates": [
+        [
+          5408320,
+          286,
+          268
+        ]
+      ],
+      "selected": "0x528640"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "AmenityIncomeValueRva",
+      "old": "0x5272a0",
+      "candidates": [
+        [
+          5403264,
+          344,
+          263
+        ]
+      ],
+      "selected": "0x527280"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "YieldDefinitionsRva",
+      "old": "0x7d1ce0",
+      "candidates": [
+        [
+          8199456,
+          29,
+          25
+        ]
+      ],
+      "selected": "0x7d1d20"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "RegisterScriptDataRva",
+      "old": "0x5bdac0",
+      "candidates": [
+        [
+          6019840,
+          394,
+          218
+        ]
+      ],
+      "selected": "0x5bdb00"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "DistrictNetValueRva",
+      "old": "0x52a440",
+      "candidates": [
+        [
+          5415968,
+          326,
+          277
+        ]
+      ],
+      "selected": "0x52a420"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "NetValueFromPlotAnalysisReturnRva",
+      "old": "0x3e30be",
+      "candidates": [
+        [
+          4073854,
+          304,
+          269
+        ]
+      ],
+      "selected": "0x3e297e"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "CalculateDistrictValuesRva",
+      "old": "0x3dfee0",
+      "candidates": [
+        [
+          4061088,
+          406,
+          356
+        ]
+      ],
+      "selected": "0x3df7a0"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "DistrictAggregationCallRva",
+      "old": "0x3e293c",
+      "candidates": [
+        [
+          4071932,
+          331,
+          248
+        ]
+      ],
+      "selected": "0x3e21fc"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "DistrictAggregationReturnRva",
+      "old": "0x3e2941",
+      "candidates": [
+        [
+          4071937,
+          331,
+          252
+        ]
+      ],
+      "selected": "0x3e2201"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "GetBestBuildingRva",
+      "old": "0x3e4710",
+      "candidates": [
+        [
+          4079568,
+          415,
+          377
+        ]
+      ],
+      "selected": "0x3e3fd0"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "OrdinaryBuildingNominationCallRva",
+      "old": "0x3e1605",
+      "candidates": [
+        [
+          4067013,
+          343,
+          283
+        ]
+      ],
+      "selected": "0x3e0ec5"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "OrdinaryBuildingNominationReturnRva",
+      "old": "0x3e160a",
+      "candidates": [
+        [
+          4067018,
+          340,
+          283
+        ]
+      ],
+      "selected": "0x3e0eca"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "BuildingNominationRestoreFlagRva",
+      "old": "0x3e49d5",
+      "candidates": [
+        [
+          4080277,
+          326,
+          284
+        ]
+      ],
+      "selected": "0x3e4295"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "BuildingNominationComparisonRva",
+      "old": "0x3e49da",
+      "candidates": [
+        [
+          4080282,
+          324,
+          282
+        ]
+      ],
+      "selected": "0x3e429a"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "GetBestDistrictRva",
+      "old": "0x3e4a50",
+      "candidates": [
+        [
+          4080400,
+          345,
+          283
+        ]
+      ],
+      "selected": "0x3e4310"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "DistrictPresentValueRva",
+      "old": "0x3e7f40",
+      "candidates": [
+        [
+          4093952,
+          281,
+          264
+        ]
+      ],
+      "selected": "0x3e7800"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "DistrictLocationRva",
+      "old": "0x3e5550",
+      "candidates": [
+        [
+          4083216,
+          352,
+          297
+        ]
+      ],
+      "selected": "0x3e4e10"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "RequestUpdateRva",
+      "old": "0x3fa5e0",
+      "candidates": [
+        [
+          4171200,
+          400,
+          343
+        ]
+      ],
+      "selected": "0x3fa5c0"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "AssignRequestValueRva",
+      "old": "0x2ca0f0",
+      "candidates": [
+        [
+          2923104,
+          311,
+          282
+        ]
+      ],
+      "selected": "0x2c9a60"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "CountDistrictTypeRva",
+      "old": "0x11ec40",
+      "candidates": [
+        [
+          1174592,
+          276,
+          240
+        ]
+      ],
+      "selected": "0x11ec40"
+    },
+    {
+      "file": "native\\target_identity.h",
+      "name": "DistrictAtRva",
+      "old": "0x11e520",
+      "candidates": [
+        [
+          1172768,
+          333,
+          304
+        ]
+      ],
+      "selected": "0x11e520"
+    },
+    {
+      "file": "Player.h",
+      "name": "GET_PLAYER_OFFSET",
+      "old": "0x7af30",
+      "candidates": [
+        [
+          503600,
+          229,
+          183
+        ]
+      ],
+      "selected": "0x7af30"
+    },
+    {
+      "file": "Player.h",
+      "name": "GET_PLAYER_INSTANCE_OFFSET",
+      "old": "0x6a4090",
+      "candidates": [
+        [
+          6963408,
+          275,
+          218
+        ]
+      ],
+      "selected": "0x6a40d0"
+    },
+    {
+      "file": "Player.h",
+      "name": "GET_PLAYER_INSTANCE_OFFSET",
+      "old": "0x6e8120",
+      "candidates": [
+        [
+          7242080,
+          273,
+          207
+        ]
+      ],
+      "selected": "0x6e8160"
+    },
+    {
+      "file": "Player.h",
+      "name": "ADD_AGENDA_OFFSET",
+      "old": "0x2f7400",
+      "candidates": [
+        [
+          3109904,
+          294,
+          246
+        ]
+      ],
+      "selected": "0x2f7410"
+    },
+    {
+      "file": "Player.h",
+      "name": "PUSH_METHODS_OFFSET",
+      "old": "0x6ecbd0",
+      "candidates": [
+        [
+          7211440,
+          405,
+          241
+        ],
+        [
+          7261200,
+          405,
+          241
+        ],
+        [
+          7276144,
+          405,
+          241
+        ],
+        [
+          7280976,
+          405,
+          241
+        ],
+        [
+          7299648,
+          405,
+          241
+        ]
+      ],
+      "selected": "0x6ecc10"
+    },
+    {
+      "file": "PlayerCities.h",
+      "name": "GET_INSTANCE_OFFSET",
+      "old": "0x6ee9b0",
+      "candidates": [
+        [
+          7206896,
+          311,
+          257
+        ],
+        [
+          7211088,
+          311,
+          257
+        ],
+        [
+          7232720,
+          311,
+          257
+        ],
+        [
+          7268848,
+          311,
+          257
+        ],
+        [
+          7271184,
+          311,
+          257
+        ],
+        [
+          7275792,
+          311,
+          257
+        ],
+        [
+          7280624,
+          311,
+          257
+        ],
+        [
+          7286256,
+          311,
+          257
+        ],
+        [
+          7287184,
+          311,
+          257
+        ],
+        [
+          7288112,
+          311,
+          257
+        ],
+        [
+          7296496,
+          311,
+          257
+        ],
+        [
+          7298480,
+          311,
+          257
+        ],
+        [
+          7299296,
+          311,
+          257
+        ],
+        [
+          7301792,
+          311,
+          257
+        ],
+        [
+          7305216,
+          311,
+          257
+        ],
+        [
+          7305968,
+          311,
+          257
+        ],
+        [
+          7307840,
+          311,
+          257
+        ],
+        [
+          7310096,
+          311,
+          257
+        ],
+        [
+          7314480,
+          311,
+          257
+        ],
+        [
+          7315584,
+          311,
+          257
+        ],
+        [
+          7316032,
+          311,
+          257
+        ],
+        [
+          7337712,
+          311,
+          257
+        ],
+        [
+          7339792,
+          311,
+          257
+        ],
+        [
+          7341552,
+          311,
+          257
+        ],
+        [
+          7347104,
+          311,
+          257
+        ]
+      ],
+      "selected": "0x6ee9f0"
+    },
+    {
+      "file": "PlayerCities.h",
+      "name": "ADD_GREAT_WORK_OFFSET",
+      "old": "0x2643b0",
+      "candidates": [
+        [
+          2507664,
+          284,
+          254
+        ]
+      ],
+      "selected": "0x264390"
+    },
+    {
+      "file": "PlayerCities.h",
+      "name": "PUSH_METHODS_OFFSET",
+      "old": "0x6eeb10",
+      "candidates": [
+        [
+          7269200,
+          409,
+          241
+        ],
+        [
+          7308192,
+          409,
+          241
+        ]
+      ],
+      "selected": "0x6eeb50"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "GET_TURNS_TO_ESTABLISH_OFFSET",
+      "old": "0xbab10",
+      "candidates": [
+        [
+          764688,
+          251,
+          211
+        ]
+      ],
+      "selected": "0xbab10"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "EDIT_GOVERNORS_OFFSET",
+      "old": "0xbe290",
+      "candidates": [
+        [
+          778896,
+          291,
+          264
+        ]
+      ],
+      "selected": "0xbe290"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "EDIT_OFFSET",
+      "old": "0x2de930",
+      "candidates": [
+        [
+          3007120,
+          90,
+          75
+        ]
+      ],
+      "selected": "0x2de290"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "PROMOTE_GOVERNOR_OFFSET",
+      "old": "0x2df340",
+      "candidates": [
+        [
+          3009712,
+          333,
+          281
+        ]
+      ],
+      "selected": "0x2decb0"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "PUSH_METHODS_OFFSET",
+      "old": "0x713b20",
+      "candidates": [
+        [
+          7420768,
+          362,
+          255
+        ]
+      ],
+      "selected": "0x713b60"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "GET_INSTANCE_OFFSET",
+      "old": "0x7139c0",
+      "candidates": [
+        [
+          7339792,
+          311,
+          257
+        ],
+        [
+          7341552,
+          311,
+          257
+        ],
+        [
+          7347104,
+          311,
+          257
+        ],
+        [
+          7372448,
+          311,
+          257
+        ],
+        [
+          7390992,
+          311,
+          257
+        ],
+        [
+          7401008,
+          311,
+          257
+        ],
+        [
+          7403136,
+          311,
+          257
+        ],
+        [
+          7418512,
+          311,
+          257
+        ],
+        [
+          7419648,
+          311,
+          257
+        ],
+        [
+          7420416,
+          311,
+          257
+        ]
+      ],
+      "selected": "0x713a00"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "NEUTRALIZE_GOVERNOR_OFFSET",
+      "old": "0x2df270",
+      "candidates": [
+        [
+          3009504,
+          279,
+          243
+        ]
+      ],
+      "selected": "0x2debe0"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "GET_GOVERNOR_OFFSET",
+      "old": "0x2de960",
+      "candidates": [
+        [
+          3007168,
+          48,
+          45
+        ]
+      ],
+      "selected": "0x2de2c0"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "CHANGE_NEUTRALIZED_TURNS",
+      "old": "0x259140",
+      "candidates": [
+        [
+          2461984,
+          313,
+          279
+        ]
+      ],
+      "selected": "0x259120"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "UNASSIGN_GOVERNOR_OFFSET",
+      "old": "0x2df800",
+      "candidates": [
+        [
+          3010928,
+          407,
+          307
+        ]
+      ],
+      "selected": "0x2df170"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "CHANGE_NEUTRALIZED_INDEFINITELY_OFFSET",
+      "old": "0x2de310",
+      "candidates": [
+        [
+          3005568,
+          362,
+          336
+        ]
+      ],
+      "selected": "0x2ddc80"
+    },
+    {
+      "file": "PlayerGovernors.h",
+      "name": "GET_TURNS_TO_ESTABLISH_OFFSET",
+      "old": "0x2ded40",
+      "candidates": [
+        [
+          3008176,
+          301,
+          251
+        ]
+      ],
+      "selected": "0x2de6b0"
+    },
+    {
+      "file": "PlayerInfluence.h",
+      "name": "PUSH_METHODS_OFFSET",
+      "old": "0x6f3650",
+      "candidates": [
+        [
+          7207248,
+          408,
+          240
+        ],
+        [
+          7233072,
+          408,
+          240
+        ],
+        [
+          7272512,
+          408,
+          240
+        ],
+        [
+          7288464,
+          408,
+          240
+        ],
+        [
+          7296848,
+          408,
+          240
+        ],
+        [
+          7302144,
+          408,
+          240
+        ],
+        [
+          7306320,
+          408,
+          240
+        ],
+        [
+          7311424,
+          408,
+          240
+        ],
+        [
+          7316384,
+          408,
+          240
+        ],
+        [
+          7327456,
+          408,
+          240
+        ],
+        [
+          7340144,
+          408,
+          240
+        ],
+        [
+          7347456,
+          408,
+          240
+        ]
+      ],
+      "selected": "0x6f3690"
+    },
+    {
+      "file": "PlayerInfluence.h",
+      "name": "GET_INSTANCE_OFFSET",
+      "old": "0x6f34f0",
+      "candidates": [
+        [
+          7206896,
+          311,
+          257
+        ],
+        [
+          7211088,
+          311,
+          257
+        ],
+        [
+          7232720,
+          311,
+          257
+        ],
+        [
+          7268848,
+          311,
+          257
+        ],
+        [
+          7271184,
+          311,
+          257
+        ],
+        [
+          7275792,
+          311,
+          257
+        ],
+        [
+          7280624,
+          311,
+          257
+        ],
+        [
+          7286256,
+          311,
+          257
+        ],
+        [
+          7287184,
+          311,
+          257
+        ],
+        [
+          7288112,
+          311,
+          257
+        ],
+        [
+          7296496,
+          311,
+          257
+        ],
+        [
+          7298480,
+          311,
+          257
+        ],
+        [
+          7299296,
+          311,
+          257
+        ],
+        [
+          7301792,
+          311,
+          257
+        ],
+        [
+          7305216,
+          311,
+          257
+        ],
+        [
+          7305968,
+          311,
+          257
+        ],
+        [
+          7307840,
+          311,
+          257
+        ],
+        [
+          7310096,
+          311,
+          257
+        ],
+        [
+          7314480,
+          311,
+          257
+        ],
+        [
+          7315584,
+          311,
+          257
+        ],
+        [
+          7316032,
+          311,
+          257
+        ],
+        [
+          7337712,
+          311,
+          257
+        ],
+        [
+          7339792,
+          311,
+          257
+        ],
+        [
+          7341552,
+          311,
+          257
+        ],
+        [
+          7347104,
+          311,
+          257
+        ]
+      ],
+      "selected": "0x6f3530"
+    },
+    {
+      "file": "PlayerInfluence.h",
+      "name": "SET_TOKENS_TO_GIVE_OFFSET",
+      "old": "0x2edaf0",
+      "candidates": [
+        [
+          3070720,
+          389,
+          347
+        ]
+      ],
+      "selected": "0x2edb00"
+    },
+    {
+      "file": "Plot.h",
+      "name": "SET_APPEAL_OFFSET",
+      "old": "0x61270",
+      "candidates": [
+        [
+          397936,
+          304,
+          271
+        ]
+      ],
+      "selected": "0x61270"
+    },
+    {
+      "file": "Plot.h",
+      "name": "PUSH_METHODS_OFFSET",
+      "old": "0x1b2e0",
+      "candidates": [
+        [
+          111328,
+          408,
+          240
+        ],
+        [
+          146208,
+          408,
+          240
+        ]
+      ],
+      "selected": "0x1b2e0"
+    },
+    {
+      "file": "Plot.h",
+      "name": "GET_INSTANCE_OFFSET",
+      "old": "0x15d60",
+      "candidates": [
+        [
+          89440,
+          303,
+          257
+        ]
+      ],
+      "selected": "0x15d60"
+    },
+    {
+      "file": "Plot.h",
+      "name": "GET_INDEX_OFFSET",
+      "old": "0x5f2d0",
+      "candidates": [
+        [
+          389840,
+          271,
+          238
+        ]
+      ],
+      "selected": "0x5f2d0"
+    },
+    {
+      "file": "Rules.h",
+      "name": "CAN_RAZE_OFFSET",
+      "old": "0x37b5a0",
+      "candidates": [
+        [
+          3649120,
+          271,
+          226
+        ]
+      ],
+      "selected": "0x37ae60"
+    },
+    {
+      "file": "Unit.h",
+      "name": "GET_INSTANCE_OFFSET",
+      "old": "0x24da0",
+      "candidates": [
+        [
+          150608,
+          307,
+          257
+        ],
+        [
+          150944,
+          307,
+          257
+        ],
+        [
+          151280,
+          307,
+          257
+        ],
+        [
+          151616,
+          307,
+          257
+        ],
+        [
+          151952,
+          307,
+          257
+        ],
+        [
+          152288,
+          307,
+          257
+        ]
+      ],
+      "selected": "0x24da0"
+    },
+    {
+      "file": "Unit.h",
+      "name": "PUSH_OFFSET",
+      "old": "0x1eff0",
+      "candidates": [
+        [
+          103968,
+          364,
+          295
+        ],
+        [
+          126960,
+          364,
+          295
+        ],
+        [
+          155744,
+          364,
+          295
+        ]
+      ],
+      "selected": "0x1eff0"
+    },
+    {
+      "file": "UnitManager.h",
+      "name": "CHANGE_OWNER_OFFSET",
+      "old": "0x64f420",
+      "candidates": [
+        [
+          6616144,
+          370,
+          314
+        ]
+      ],
+      "selected": "0x64f450"
+    },
+    {
+      "file": "UnitManager.h",
+      "name": "GET_OFFSET",
+      "old": "0x64fff0",
+      "candidates": [
+        [
+          6619168,
+          271,
+          235
+        ]
+      ],
+      "selected": "0x650020"
+    },
+    {
+      "file": "UnitManager.h",
+      "name": "REGISTER_MEMBERS_OFFSET",
+      "old": "0x700980",
+      "candidates": [
+        [
+          7342528,
+          417,
+          245
+        ]
+      ],
+      "selected": "0x7009c0"
+    }
+  ],
+  "executable": {
+    "sha256": "080928a2820d341f4dfaa07877d7b11a6a1a007752c39f09330a70993b10456b",
+    "timestamp": 1794358546,
+    "image_size": 57720832,
+    "file_size": 21189480,
+    "certificate_size": 15648
+  },
+  "executable_entries": {
+    "PublishEvents": 448048,
+    "ForgeUI::GetLock": 8960576,
+    "ForgeUI::ReleaseLock": 8998656
+  },
+  "executable_global_references": {
+    "Lua critical section": [
+      5068852,
+      14367416
+    ],
+    "ForgeUI manager slot": [
+      242588,
+      1486676
+    ]
+  }
+}

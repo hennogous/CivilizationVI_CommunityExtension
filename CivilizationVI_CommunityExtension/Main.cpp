@@ -122,14 +122,14 @@ static void Hook_RegisterScriptDataForUI(hks::lua_State* mainState, hks::lua_Sta
 #pragma region Offsets
 constexpr uintptr_t CURRENT_GAME_OFFSET = 0xb8aa60;
 
-constexpr uintptr_t REGISTER_SCRIPT_DATA_OFFSET = 0x5bdac0;
-constexpr uintptr_t C_CALL_WITH_ERROR_HANDLING_OFFSET = 0x9ad880;
-constexpr uintptr_t REGISTER_SCRIPT_DATA_FOR_UI_OFFSET = 0x5bdd80;
-constexpr uintptr_t SET_MAX_TURNS_OFFSET = 0x597960;
-constexpr uintptr_t GLOBAL_PARAMETERS_INITIALIZE_OFFSET = 0x1f02a0;
-constexpr uintptr_t GLOBAL_PARAMETERS_GET_OFFSET = 0x1f0120;
-constexpr uintptr_t APPLY_TOURISM_OFFSET = 0x27a0e0;
-constexpr uintptr_t GET_PLAYERS_TO_PROCESS_OFFSET = 0x49d40;
+constexpr uintptr_t REGISTER_SCRIPT_DATA_OFFSET = 0x5bdb00;
+constexpr uintptr_t C_CALL_WITH_ERROR_HANDLING_OFFSET = 0x9ad8e0;
+constexpr uintptr_t REGISTER_SCRIPT_DATA_FOR_UI_OFFSET = 0x5bddc0;
+constexpr uintptr_t SET_MAX_TURNS_OFFSET = 0x5979a0;
+constexpr uintptr_t GLOBAL_PARAMETERS_INITIALIZE_OFFSET = 0x1f0960;
+constexpr uintptr_t GLOBAL_PARAMETERS_GET_OFFSET = 0x1f07e0;
+constexpr uintptr_t APPLY_TOURISM_OFFSET = 0x27a7b0;
+constexpr uintptr_t GET_PLAYERS_TO_PROCESS_OFFSET = 0x49d50;
 #pragma endregion
 
 static void InitHooks() {

@@ -20,9 +20,9 @@ namespace PlayerCities {
 
 	extern void __cdecl PushMethods(hks::lua_State* L, int stackOffset);
 
-	constexpr uintptr_t GET_INSTANCE_OFFSET = 0x6ee9b0;
-	constexpr uintptr_t ADD_GREAT_WORK_OFFSET = 0x2643b0;
-	constexpr uintptr_t PUSH_METHODS_OFFSET = 0x6eeb10;
+	constexpr uintptr_t GET_INSTANCE_OFFSET = 0x6ee9f0;
+	constexpr uintptr_t ADD_GREAT_WORK_OFFSET = 0x264390;
+	constexpr uintptr_t PUSH_METHODS_OFFSET = 0x6eeb50;
 
 	extern void Create();
 }

@@ -8,9 +8,9 @@ namespace PlayerInfluence {
         typedef void(__thiscall* SetTokensToGive)(Influence* influence, int tokens);
         typedef Influence* (__cdecl* GetInstance)(hks::lua_State*, int, bool);
 	}
-	constexpr uintptr_t PUSH_METHODS_OFFSET = 0x6f3650;
-	constexpr uintptr_t GET_INSTANCE_OFFSET = 0x6f34f0;
-	constexpr uintptr_t SET_TOKENS_TO_GIVE_OFFSET = 0x2edaf0;
+	constexpr uintptr_t PUSH_METHODS_OFFSET = 0x6f3690;
+	constexpr uintptr_t GET_INSTANCE_OFFSET = 0x6f3530;
+	constexpr uintptr_t SET_TOKENS_TO_GIVE_OFFSET = 0x2edb00;
 
     extern ProxyTypes::PushMethods base_PushMethods;
     extern ProxyTypes::PushMethods orig_PushMethods;

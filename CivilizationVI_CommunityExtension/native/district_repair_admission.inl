@@ -2,21 +2,21 @@
 // GameCore owns the new tree, controller, reservation, request and cleanup.
 // This adapter stages identities only and supplies no score or priority delta.
 
-constexpr uintptr_t CheckForDistrictRva = 0x3e0ee0;
+constexpr uintptr_t CheckForDistrictRva = 0x3e07a0;
 constexpr uintptr_t LookupPlayerRva = 0x44f00;
 constexpr uintptr_t EditMapRva = 0x44d40;
 constexpr uintptr_t CanZoneRva = 0x0f9d50;
-constexpr uintptr_t FindBehaviorTreeRva = 0x564020;
-constexpr uintptr_t CreateOneUseTreeRva = 0x563840;
-constexpr uintptr_t DestroyTreeRva = 0x563960;
-constexpr uintptr_t AddTreeControllerRva = 0x53feb0;
-constexpr uintptr_t FindTreeControllerRva = 0x4019f0;
-constexpr uintptr_t ConstructAnalysisRva = 0x48c8c0;
+constexpr uintptr_t FindBehaviorTreeRva = 0x564060;
+constexpr uintptr_t CreateOneUseTreeRva = 0x563880;
+constexpr uintptr_t DestroyTreeRva = 0x5639a0;
+constexpr uintptr_t AddTreeControllerRva = 0x53fef0;
+constexpr uintptr_t FindTreeControllerRva = 0x4019d0;
+constexpr uintptr_t ConstructAnalysisRva = 0x48c8b0;
 constexpr uintptr_t CopyTreeAnalysisRva = 0x0d6160;
-constexpr uintptr_t FreeAnalysisBufferRva = 0x9908f0;
-constexpr uintptr_t EmptyNativeStringRva = 0x993b30;
-constexpr uintptr_t FormatNativeStringRva = 0x993930;
-constexpr uintptr_t DestroyNativeStringRva = 0x993590;
+constexpr uintptr_t FreeAnalysisBufferRva = 0x990950;
+constexpr uintptr_t EmptyNativeStringRva = 0x993b90;
+constexpr uintptr_t FormatNativeStringRva = 0x993990;
+constexpr uintptr_t DestroyNativeStringRva = 0x9935f0;
 
 constexpr size_t CityBuildPriorityOffset = 0x198, CityBuildDistrictTemplateOffset = 0x408;
 constexpr size_t CityBuildDistrictSlotOffset = 0x430, DistrictSlotTreeIdOffset = 8;
@@ -293,7 +293,7 @@ bool install_repair_hook(const unsigned char* base) {
         {FindTreeControllerRva, {0x44,0x8b,0xc2,0x83,0xfa,0xff,0x74,0x45}},
         {ConstructAnalysisRva, {0x83,0xc8,0xff,0x33,0xd2,0x89,0x01,0x89}},
         {CopyTreeAnalysisRva, {0x48,0x89,0x5c,0x24,0x18,0x57,0x48,0x83}},
-        {FreeAnalysisBufferRva, {0x48,0xff,0x25,0x89,0x6d,0x02,0x00,0xcc}},
+        {FreeAnalysisBufferRva, {0x48, 0xff, 0x25, 0x29, 0x6d, 0x02, 0x00, 0xcc}},
         {EmptyNativeStringRva, {0x48,0x83,0xec,0x28,0x65,0x48,0x8b,0x04}},
         {FormatNativeStringRva, {0x48,0x89,0x54,0x24,0x10,0x4c,0x89,0x44}},
         {DestroyNativeStringRva, {0x40,0x53,0x48,0x83,0xec,0x20,0x48,0x8b}},

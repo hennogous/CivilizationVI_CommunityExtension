@@ -8,7 +8,7 @@ namespace Rules::Players {
 		typedef bool(__thiscall* CanRaze)(Instance* rulesPlayers, City::Instance* city, int playerId);
 	}
 
-	constexpr uintptr_t CAN_RAZE_OFFSET = 0x37b5a0;
+	constexpr uintptr_t CAN_RAZE_OFFSET = 0x37ae60;
 	extern bool CanRaze(Instance* rulesPlayers, City::Instance* city, int playerId);
 
 	extern int Register(hks::lua_State* L);

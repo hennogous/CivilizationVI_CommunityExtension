@@ -12,9 +12,9 @@ namespace SitePricingLayout {
 // NetValue52a440 calls Value52d500 with an empty24-byte Types::Vector<AiMapChange>
 // and frees its buffer through this image's _aligned_free import. Use that
 // exact allocator boundary rather than freeing a native allocation in CE's CRT.
-constexpr uintptr_t IntrinsicDistrictRva = 0x52d500;
-constexpr uintptr_t DistrictDefinitionsRva = 0x7d08e0;
-constexpr uintptr_t EditMapRva = 0x44d40, PlotLookupRva = 0x52d00;
+constexpr uintptr_t IntrinsicDistrictRva = 0x52d4e0;
+constexpr uintptr_t DistrictDefinitionsRva = 0x7d0920;
+constexpr uintptr_t EditMapRva = 0x44d40, PlotLookupRva = 0x52d10;
 constexpr uintptr_t PlotAttributesRva = 0x5f090, PlotDistrictTypeRva = 0x5e720;
 constexpr uintptr_t AlignedFreeImportRva = 0x9b7680;
 constexpr uintptr_t GlobalsPointerRva = 0xb8aa68;
@@ -44,10 +44,10 @@ bool qualify_site_pricing() {
     struct Prefix { uintptr_t rva; const char* bytes; size_t length; };
     const Prefix expected[]{
         {IntrinsicDistrictRva,"\x44\x89\x4c\x24\x20\x4c\x89\x44\x24\x18\x89\x54\x24\x10\x48\x89",16},
-        {DistrictDefinitionsRva,"\x48\x83\xec\x28\xe8\xe7\x44\x87\xff\x48\x05\x70\x0b\x00\x00\x48",16},
+        {DistrictDefinitionsRva,"\x48\x83\xec\x28\xe8\xa7\x44\x87\xff\x48\x05\x70\x0b\x00\x00\x48",16},
         {SitePricingLayout::EditMapRva,"\x48\x8b\x05\x21\x5d\xb4\x00\x48",8},
         {PlotLookupRva,"\x44\x8b\x02\x41\x81\xf8\xf1\xd8\xff\xff\x0f\x84\x92\x00\x00\x00",16},
-        {PlotAttributesRva,"\x0f\xb7\x49\x4e\xe9\x77\xd1\xfe\xff",9},
+        {PlotAttributesRva,"\x0f\xb7\x49\x4e\xe9\x87\xd1\xfe\xff",9},
         {PlotDistrictTypeRva,"\x48\x83\xec\x38\x0f\xbe\x41\x1c\x48\x8d\x54\x24\x20\x66\x89\x44",16},
     };
     if (!economy_pricing_ready) return false;

@@ -60,16 +60,16 @@ namespace PlayerGovernors {
     extern void SetTurnsToEstablishDelay(Governors* governors, int governorHash, int amount);
     extern void ChangeTurnsToEstablishDelay(Governors* governors, int governorHash, int amount);
 
-    constexpr uintptr_t EDIT_OFFSET = 0x2de930;
-    constexpr uintptr_t PROMOTE_GOVERNOR_OFFSET = 0x2df340;
-    constexpr uintptr_t PUSH_METHODS_OFFSET = 0x713b20;
-    constexpr uintptr_t GET_INSTANCE_OFFSET = 0x7139c0;
-    constexpr uintptr_t NEUTRALIZE_GOVERNOR_OFFSET = 0x2df270;
-    constexpr uintptr_t GET_GOVERNOR_OFFSET = 0x2de960;
-    constexpr uintptr_t CHANGE_NEUTRALIZED_TURNS = 0x259140;
-    constexpr uintptr_t UNASSIGN_GOVERNOR_OFFSET = 0x2df800;
-    constexpr uintptr_t CHANGE_NEUTRALIZED_INDEFINITELY_OFFSET = 0x2de310;
-    constexpr uintptr_t GET_TURNS_TO_ESTABLISH_OFFSET = 0x2ded40;
+    constexpr uintptr_t EDIT_OFFSET = 0x2de290;
+    constexpr uintptr_t PROMOTE_GOVERNOR_OFFSET = 0x2decb0;
+    constexpr uintptr_t PUSH_METHODS_OFFSET = 0x713b60;
+    constexpr uintptr_t GET_INSTANCE_OFFSET = 0x713a00;
+    constexpr uintptr_t NEUTRALIZE_GOVERNOR_OFFSET = 0x2debe0;
+    constexpr uintptr_t GET_GOVERNOR_OFFSET = 0x2de2c0;
+    constexpr uintptr_t CHANGE_NEUTRALIZED_TURNS = 0x259120;
+    constexpr uintptr_t UNASSIGN_GOVERNOR_OFFSET = 0x2df170;
+    constexpr uintptr_t CHANGE_NEUTRALIZED_INDEFINITELY_OFFSET = 0x2ddc80;
+    constexpr uintptr_t GET_TURNS_TO_ESTABLISH_OFFSET = 0x2de6b0;
 
     extern int lGetNeutralizedIndefinitely(hks::lua_State* L);
     extern int lChangeNeutralizedIndefinitely(hks::lua_State* L);

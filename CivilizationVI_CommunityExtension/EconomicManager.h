@@ -26,8 +26,8 @@ namespace EconomicManager {
 
     extern int Register(hks::lua_State* L);
 
-    constexpr uintptr_t GET_OFFSET = 0x62cdf0;
-    constexpr uintptr_t GET_TOURISM_FROM_MONOPOLIES_OFFSET = 0x62dd20;
+    constexpr uintptr_t GET_OFFSET = 0x62ce20;
+    constexpr uintptr_t GET_TOURISM_FROM_MONOPOLIES_OFFSET = 0x62dd50;
 
     extern void Create();
 }

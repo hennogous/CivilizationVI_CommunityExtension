@@ -3,10 +3,10 @@
 // The original tree still checks protection, movement and repair legality.
 namespace WorkerDispatch {
 
-// XP2 092abfbb. Manager::DoTurn walks a linked list of trees and calls Update
+// XP2 build 26595377. Manager::DoTurn walks a linked list of trees and calls Update
 // once per entry at the supplied priority. It runs the destroy pass afterward.
-constexpr uintptr_t ManagerDoTurnRva = 0x5639b0, TreeUpdateRva = 0x544360;
-constexpr uintptr_t ManagerUpdateReturnRva = 0x5639ea, GameInstanceRva = 0xb8aa68;
+constexpr uintptr_t ManagerDoTurnRva = 0x5639f0, TreeUpdateRva = 0x5443a0;
+constexpr uintptr_t ManagerUpdateReturnRva = 0x563a2a, GameInstanceRva = 0xb8aa68;
 constexpr size_t ManagerPlayer = 0x330, ManagerTreeHead = 0x388, NextListNode = 0x10;
 // Update checks node count, root state, native priority and suspension before
 // touching the tree. The plot, city and improvement are its live decode fields.

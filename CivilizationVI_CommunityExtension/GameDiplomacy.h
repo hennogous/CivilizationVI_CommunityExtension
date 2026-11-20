@@ -11,10 +11,10 @@ namespace GameDiplomacy {
 		typedef void(__thiscall* PushMethods)(IGameDiplomacy* gameDiplomacy, hks::lua_State* L, int stackOffset);
 	}
 
-	constexpr uintptr_t GET_INSTANCE_OFFSET = 0x6d86e0;
-	constexpr uintptr_t PUSH_METHODS_OFFSET = 0x745660;
-	constexpr uintptr_t EDIT_OFFSET = 0x1d0220;
-	constexpr uintptr_t CHANGE_GRIEVANCE_SCORE_OFFSET = 0x1cea40;
+	constexpr uintptr_t GET_INSTANCE_OFFSET = 0x6d8720;
+	constexpr uintptr_t PUSH_METHODS_OFFSET = 0x7456a0;
+	constexpr uintptr_t EDIT_OFFSET = 0x1d08e0;
+	constexpr uintptr_t CHANGE_GRIEVANCE_SCORE_OFFSET = 0x1cf100;
 
     extern Types::ChangeGrievanceScore ChangeGrievanceScore;
     extern Types::GetInstance GetInstance;

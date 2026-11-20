@@ -4,12 +4,12 @@
 // Included by AIDistrictScores.cpp after the shared packet and ABI helpers.
 namespace MaterialDevelopment {
 
-// Windows Steam XP2 hotfix 092abfbb. Each member is qualified with the entry
+// Windows Steam XP2 build 26595377. Each member is qualified with the entry
 // bytes below as well as the owning module's full GameCore identity check.
-constexpr uintptr_t QueueTechRva = 0x4fa9a0, CompareTechRowsRva = 0x4f60d0;
-constexpr uintptr_t QueueCivicRva = 0x418860, CompareCivicRowsRva = 0x40de20;
-constexpr uintptr_t BuildFromCityRva = 0x55ba40, InitializeUnitRequestRva = 0x3f9300;
-constexpr uintptr_t BuildFromCityUnitReturnRva = 0x55be9c;
+constexpr uintptr_t QueueTechRva = 0x4fa2d0, CompareTechRowsRva = 0x4f5a00;
+constexpr uintptr_t QueueCivicRva = 0x418840, CompareCivicRowsRva = 0x40de00;
+constexpr uintptr_t BuildFromCityRva = 0x55ba80, InitializeUnitRequestRva = 0x3f92e0;
+constexpr uintptr_t BuildFromCityUnitReturnRva = 0x55bedc;
 constexpr size_t PlayerIdOffset = 0xd8;
 constexpr size_t ResearchRowSize = 0x50, FullValueOffset = 0x14;
 struct ResearchLayout {
@@ -262,7 +262,7 @@ void Install(const Byte* base, bool improvementReady) {
     if (improvementReady &&
         prefix(base, BuildFromCityRva, std::to_array<Byte>({0x40,0x55,0x57,0x41,0x54,0x41,0x55,0x48,0x8d,0x6c,0x24,0xc1})) &&
         prefix(base, InitializeUnitRequestRva, std::to_array<Byte>({0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x6c,0x24,0x10,0x44,0x89,0x44,0x24,0x18})) &&
-        prefix(base, BuildFromCityUnitReturnRva - 5, std::to_array<Byte>({0xe8,0x64,0xd4,0xe9,0xff}))) {
+        prefix(base, BuildFromCityUnitReturnRva - 5, std::to_array<Byte>({0xe8, 0x04, 0xd4, 0xe9, 0xff}))) {
         const Runtime::HookSpec hooks[] = {
             DescribeHook("Material job city recruitment", GetGameCoreGlobalAt<BuildFromCity>(BuildFromCityRva), &build_from_city, &originalBuildFromCity),
             DescribeHook("Material job unit request", GetGameCoreGlobalAt<InitUnitRequest>(InitializeUnitRequestRva), &initialize_unit_request, &originalInitUnitRequest),

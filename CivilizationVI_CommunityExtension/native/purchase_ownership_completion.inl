@@ -8,12 +8,12 @@
 // CSC AI-C161. A paid plan stayed accepted (3), then timed out because ownership
 // made Economic eligibility false. The diagnostic tracked3->7 assignment released
 // its ordinary request and foundation. Reload remains a live qualification gate.
-constexpr uintptr_t OwnershipDecoratorRva = 0x55a030;
-constexpr uintptr_t OwnershipPurchaseVtableRva = 0x9fa930;
-constexpr uintptr_t OwnershipMapLookupRva = 0x52d00;
+constexpr uintptr_t OwnershipDecoratorRva = 0x55a070;
+constexpr uintptr_t OwnershipPurchaseVtableRva = 0x9fa910;
+constexpr uintptr_t OwnershipMapLookupRva = 0x52d10;
 constexpr uintptr_t OwnershipAttributesRva = 0x5f090;
-constexpr uintptr_t OwnershipPoolLookupRva = 0x4c210;
-constexpr uintptr_t OwnershipTrackedAssignRva = 0x64a6d0;
+constexpr uintptr_t OwnershipPoolLookupRva = 0x4c220;
+constexpr uintptr_t OwnershipTrackedAssignRva = 0x64a700;
 constexpr size_t OwnershipContractStateVariable = 0xa0, OwnershipContractState = 0xb0;
 constexpr size_t OwnershipContractId = 0x110, OwnershipContractControl = 0x128;
 constexpr size_t OwnershipContractPlayer = 0x140, OwnershipContractXY = 0x178;
@@ -151,8 +151,8 @@ bool install_ownership_hook(const unsigned char* base) {
     const Prefix prefixes[] = {
         {OwnershipDecoratorRva, "\x48\x89\x5c\x24\x18\x55\x57\x41\x56\x48\x83\xec\x20", 13},
         {OwnershipMapLookupRva, "\x44\x8b\x02\x41\x81\xf8\xf1\xd8\xff\xff\x0f\x84\x92\x00\x00\x00", 16},
-        {OwnershipAttributesRva, "\x0f\xb7\x49\x4e\xe9\x77\xd1\xfe\xff", 9},
-        {OwnershipPoolLookupRva, "\x3b\x0d\x82\x52\xb1\x00\x48\x8b\x15\x6b\x52\xb1\x00", 13},
+        {OwnershipAttributesRva, "\x0f\xb7\x49\x4e\xe9\x87\xd1\xfe\xff", 9},
+        {OwnershipPoolLookupRva, "\x3b\x0d\x72\x52\xb1\x00\x48\x8b\x15\x5b\x52\xb1\x00", 13},
         {OwnershipTrackedAssignRva, "\x48\x89\x5c\x24\x18\x57\x48\x83\xec\x30\x48\x8b\x41\x08", 14},
         {EditMapRva, "\x48\x8b\x05\x21\x5d\xb4\x00\x48", 8},
     };
