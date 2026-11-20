@@ -93,7 +93,7 @@
       <AddModuleNamesToAssembly>
       </AddModuleNamesToAssembly>
       <AdditionalDependencies>setupapi.lib;Bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CE_DEV_LIBRARY_DIR);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

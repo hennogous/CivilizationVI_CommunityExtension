@@ -3,16 +3,38 @@
 ## CSC development branch
 
 `csc-dev` is the working branch for the Civ Supply Chains development build.
-It descends from WildW's `develop` and brings the tested CSC guidance,
-including the Builder finishing scheduler, into one branch. The current native
-profile targets the Windows DX11 and Gathering Storm binaries in Steam build
-`26595377`. [Relocation ledger](native-relocation.json) · [Port and test report](https://github.com/hennogous/Henno-Mods/blob/main/project/docs/research/mods/csc-ce-steam-26595377-port-20261120.md)
+Land new native changes and APIs for CSC tuning on this branch. It descends
+from WildW's `develop`. The current profile targets the Windows DX11 and
+Gathering Storm binaries in Steam build `26595377`. [Relocation ledger](native-relocation.json) · [Port and test report](https://github.com/hennogous/Henno-Mods/blob/main/project/docs/research/mods/csc-ce-steam-26595377-port-20261120.md)
 
-Build Release x64 with the Visual Studio v143 project and Windows SDK. The
-verified local setup uses MinHook 1.3.4 for `x64-windows-static`, staged as
-`CivilizationVI_CommunityExtension/lib/Release/libMinHook.x64.lib`. Set
-`CE_OUTPUT_DIR` to the staging directory. The game loads its installed Gathering
-Storm GameCore at runtime. [CE native implementation](CivilizationVI_CommunityExtension/native/README.md)
+### Build the development mod
+
+Use an x64 Developer PowerShell for Visual Studio 2022 with the v143 C++
+toolset and a Windows SDK. Set up [Microsoft vcpkg](https://github.com/microsoft/vcpkg)
+alongside this checkout by running `bootstrap-vcpkg.bat` in the vcpkg checkout.
+Run this from the root of the CE checkout.
+
+```powershell
+.\tools\csc-dev\Build-CscDev.ps1 -VcpkgRoot ..\vcpkg -OutputDirectory .\csc-ce-build
+```
+
+Choose a fresh output directory. The script restores MinHook 1.3.4 using the
+pinned manifest, builds the existing Release x64 project, and assembles the mod
+under `csc-ce-build/CE CSC Development`. The package uses the development ID
+expected by CSC. Its DLL loads the game's installed Gathering Storm GameCore.
+
+### Run with Civ Supply Chains
+
+1. Copy `CE CSC Development` into your Civ VI `Mods` directory.
+2. Build [Henno-Mods](https://github.com/hennogous/Henno-Mods/tree/883423a3)
+   in the Civilization VI SDK's ModBuddy and install the resulting Civ Supply
+   Chains mod. The linked commit contains the companion tuning.
+3. Enable Civ Supply Chains and **Community Extension - CSC AI capabilities**.
+   Disable other GameCore mods, including regular Community Extension, for this
+   game. Start a Gathering Storm game with the Windows DX11 executable.
+
+For the AI integration, CSC's Lua publishes the policy and CE exposes and
+consumes it at the native decisions. Follow the [native implementation](CivilizationVI_CommunityExtension/native/README.md) for the CE side.
 
 This mod is currently in beta. Report bugs on the [issue tracker](https://github.com/Wild-W/CivilizationVI_CommunityExtension/issues). You can also contact me directly or on the steam workshop page. I prefer if you do it on the issue tracker though.
 
