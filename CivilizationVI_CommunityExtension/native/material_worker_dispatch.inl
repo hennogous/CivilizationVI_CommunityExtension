@@ -1,6 +1,6 @@
-// Lua supplies on-site Builders for sole-supplier repairs. Give the native
-// improvement tree an earlier update only when it already controls that unit.
-// The original tree still checks protection, movement and repair legality.
+// The Lua policy names on-site Builders for supplier jobs that can finish in
+// one action. Only promote the native tree that still controls that worker.
+// The original tree checks protection, movement and build or repair legality.
 namespace WorkerDispatch {
 
 // XP2 build 26595377. Manager::DoTurn walks a linked list of trees and calls Update
