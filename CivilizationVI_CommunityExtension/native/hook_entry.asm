@@ -42,11 +42,22 @@ AIBuildingNominationEntry PROC FRAME
     sub rsp, 0B8h
     .allocstack 0B8h
     .endprolog
+    ; The ordinary nomination uses flags 0/0. QueueNextBuild uses 1/0
+    ; or 1/1. Admit only these modes to the adapter. C++ checks the exact
+    ; caller return and the independently published preference.
     cmp byte ptr [rbp + NominationFirstFlag], 0
-    jne replay_flag
+    jne check_queue_mode
     cmp byte ptr [rbp + NominationSecondFlag], 0
     jne replay_flag
+    jmp save_comparison_context
 
+check_queue_mode:
+    cmp byte ptr [rbp + NominationFirstFlag], 1
+    jne replay_flag
+    cmp byte ptr [rbp + NominationSecondFlag], 1
+    ja replay_flag
+
+save_comparison_context:
     ; The interrupted caller did not expect a function call here. Keep its
     ; volatile registers, reserving the first 32 bytes for Win64 shadow space.
     mov [rsp + 20h], rax

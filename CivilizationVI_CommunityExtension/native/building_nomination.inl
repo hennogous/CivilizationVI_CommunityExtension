@@ -69,8 +69,9 @@ extern "C" int AIBuildingNominationScore(const void* cityBuild, int building, in
     if (!nominations_published.load(std::memory_order_relaxed) || !enabled.load() || building < 0)
         return score;
     const bool ordinary = caller == Runtime::GetGameCoreGlobalAt<const void*>(OrdinaryBuildingNominationReturnRva);
-    const bool queue = caller == Runtime::GetGameCoreGlobalAt<const void*>(QueueBuildingSelectionReturnRva) ||
-        caller == Runtime::GetGameCoreGlobalAt<const void*>(QueueFilteredBuildingSelectionReturnRva);
+    const bool queue = !ordinary &&
+        (caller == Runtime::GetGameCoreGlobalAt<const void*>(QueueBuildingSelectionReturnRva) ||
+         caller == Runtime::GetGameCoreGlobalAt<const void*>(QueueFilteredBuildingSelectionReturnRva));
     if (!ordinary && !queue)
         return score;
 
@@ -184,9 +185,10 @@ int l_nomination_receipt(lua_State* L) {
     char output[224];
     const int length = snprintf(output, sizeof output,
         "{\"staged\":%d,\"forecastReady\":%d,\"forecasts\":%d,\"comparisons\":%d,\"writes\":%d,"
-        "\"queueComparisons\":%d,\"queueWrites\":%d}",
+        "\"queueBidQ8\":%d,\"queueComparisons\":%d,\"queueWrites\":%d}",
         staged, static_cast<int>(ordinary_forecast_ready && wonder_ready),
-        receipt.forecasts, receipt.comparisons, receipt.writes, receipt.queueComparisons, receipt.queueWrites);
+        receipt.forecasts, receipt.comparisons, receipt.writes, receipt.queueDeltaQ8,
+        receipt.queueComparisons, receipt.queueWrites);
     if (length > 0 && length < static_cast<int>(sizeof output))
         push_json(L, output, static_cast<size_t>(length));
     else

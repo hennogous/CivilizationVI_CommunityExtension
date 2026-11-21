@@ -276,7 +276,9 @@ On Windows Steam XP2 build 26595377 (GameCore SHA 4de40abf), the flag restore
 at RVA 3e4295 precedes the effective Q8 building-score comparison at 3e429a.
 CE installs one instruction call through Runtime. The Win64 shim preserves
 volatile registers, passes the original caller return address, replays the
-flag restore and returns to the original comparison. The game's prerequisites
+flag restore and returns to the original comparison. The shim admits modes
+0/0 for ordinary nomination and 1/0 or 1/1 for the two queue paths. The
+adapter checks the corresponding native return address. The game's prerequisites
 and positive-score checks still govern eligibility. Unrecognized callers and
 unsupported instruction bytes retain stock behavior.
 
@@ -305,9 +307,9 @@ The queue capability verifies both direct CALL targets as part of hook
 installation. Failure of this optional fingerprint leaves the qualified
 ordinary channel available. CE_AIBuildingNominationStatus reports this
 as queueReady, with queueChanged and firstQueue for the current
-publication. CE_AIBuildingNominationReceipt reports per-key
-queueComparisons and queueWrites alongside the existing ordinary
-counters. A queue write is a comparison observation. The mod must
+publication. CE_AIBuildingNominationReceipt reports the staged queueBidQ8,
+queueComparisons and queueWrites for the same key and packet version as
+the existing ordinary counters. A queue write is a comparison observation. The mod must
 inspect the actual queue or completed building for follow-through.
 
 ## Existing project integration
