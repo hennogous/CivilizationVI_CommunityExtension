@@ -84,7 +84,8 @@ struct WonderPlacementOffer {
 };
 struct BuildingNomination {
     int player, city, building, deltaQ8;
-    int forecasts{}, comparisons{}, writes{};
+    int queueDeltaQ8{};
+    int forecasts{}, comparisons{}, writes{}, queueComparisons{}, queueWrites{};
 };
 struct RepairCandidate {
     int player, city, district, plot;
@@ -1193,8 +1194,8 @@ int l_commit(lua_State* L) {
             repairs_published.store(policy.repairCount > 0, std::memory_order_relaxed);
             repair_considered = repair_admitted = repair_duplicates = repair_rejected = 0;
             first_repair = {};
-            nomination_changed = 0;
-            first_nomination_change = {};
+            nomination_changed = queue_nomination_changed = 0;
+            first_nomination_change = first_queue_nomination_change = {};
             builder_changed = builder_bids = 0;
             first_builder_change = {};
             first_builder_bid = {};
@@ -1513,13 +1514,13 @@ void reset_policy(void) {
     wonder_matched = wonder_boosted = 0;
     harvest_rejected = harvest_faults = 0;
     nominations_published.store(false, std::memory_order_relaxed);
-    nomination_changed = nomination_faults = 0;
+    nomination_changed = queue_nomination_changed = nomination_faults = 0;
     repairs_published.store(false, std::memory_order_relaxed);
     ownership_published.store(false, std::memory_order_relaxed);
     ownership_faults = 0;
     repair_considered = repair_admitted = repair_duplicates = repair_rejected = repair_faults = 0;
     first_repair = {};
-    first_nomination_change = {};
+    first_nomination_change = first_queue_nomination_change = {};
     first_harvest_rejection = {};
     first_builder_change = {};
 }
@@ -1598,6 +1599,7 @@ void RegisterLua(hks::lua_State* L) {
     PushLuaMethod(L, l_yield_fixed_value, "CE_AIYieldFixedValue", hks::LUA_GLOBAL, "CE_AIYieldFixedValue");
     PushLuaMethod(L, l_amenity_stream_value, "CE_AIAmenityStreamValue", hks::LUA_GLOBAL, "CE_AIAmenityStreamValue");
     PushLuaMethod(L, l_nomination_bid, "CE_AIBuildingNominationBid", hks::LUA_GLOBAL, "CE_AIBuildingNominationBid");
+    PushLuaMethod(L, l_nomination_queue_bid, "CE_AIBuildingNominationQueueBid", hks::LUA_GLOBAL, "CE_AIBuildingNominationQueueBid");
     PushLuaMethod(L, l_nomination_status, "CE_AIBuildingNominationStatus", hks::LUA_GLOBAL, "CE_AIBuildingNominationStatus");
     PushLuaMethod(L, l_ownership_stage, "CE_AIDistrictPurchaseCompletionStage", hks::LUA_GLOBAL, "CE_AIDistrictPurchaseCompletionStage");
     PushLuaMethod(L, l_ownership_status, "CE_AIDistrictPurchaseCompletionStatus", hks::LUA_GLOBAL, "CE_AIDistrictPurchaseCompletionStatus");

@@ -33,6 +33,13 @@ inline constexpr unsigned char X64CallRel32 = 0xe8;
 inline constexpr uintptr_t GetBestBuildingRva = 0x3e3fd0;
 inline constexpr uintptr_t OrdinaryBuildingNominationCallRva = 0x3e0ec5;
 inline constexpr uintptr_t OrdinaryBuildingNominationReturnRva = 0x3e0eca;
+// QueueNextBuild uses two alternative GetBestBuilding calls. Both require an
+// immediately buildable item. Their fourth argument selects the building class
+// filter. The returned score can reach the later category comparison.
+inline constexpr uintptr_t QueueBuildingSelectionCallRva = 0x3e7d57;
+inline constexpr uintptr_t QueueBuildingSelectionReturnRva = QueueBuildingSelectionCallRva + 5;
+inline constexpr uintptr_t QueueFilteredBuildingSelectionCallRva = 0x3e7e59;
+inline constexpr uintptr_t QueueFilteredBuildingSelectionReturnRva = QueueFilteredBuildingSelectionCallRva + 5;
 // Both missing-prerequisite checks have passed at the flag restore.
 inline constexpr uintptr_t BuildingNominationRestoreFlagRva = 0x3e4295;
 inline constexpr uintptr_t BuildingNominationComparisonRva = 0x3e429a;

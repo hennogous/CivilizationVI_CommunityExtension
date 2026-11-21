@@ -563,10 +563,10 @@ int run_self_test() {
     staging.nominationCount = 3;
     staging.nominations[0] = {3, 42, 19, 100};
     staging.nominations[1] = {1, 42, 19, 300};
-    staging.nominations[2] = {3, 42, 19, 200};
+    staging.nominations[2] = {3, 42, 19, 200, 150};
     finish_nominations(staging);
     CHECK(staging.nominationCount == 2 && staging.nominations[0].player == 1 &&
-        staging.nominations[1].deltaQ8 == 200);
+        staging.nominations[1].deltaQ8 == 200 && staging.nominations[1].queueDeltaQ8 == 150);
     CHECK(adjusted_nomination_score(93359, 114688) == 208047);
     CHECK(adjusted_nomination_score(0, 100) == 0 && adjusted_nomination_score(-1, 100) == -1);
     CHECK(adjusted_nomination_score(INT_MAX - 1, 100) == INT_MAX - 1 &&
@@ -589,6 +589,31 @@ int run_self_test() {
     CHECK(l_nomination_receipt(asLua(exactBuilding)) == 1 && strstr(test_json, "\"staged\":1") &&
         strstr(test_json, "\"forecasts\":1") && strstr(test_json, "\"comparisons\":2") &&
         strstr(test_json, "\"writes\":1"));
+    const auto queueCaller = Runtime::GetGameCoreGlobalAt<const void*>(QueueBuildingSelectionReturnRva);
+    const auto filteredQueueCaller = Runtime::GetGameCoreGlobalAt<const void*>(QueueFilteredBuildingSelectionReturnRva);
+    queue_nomination_ready = true;
+    CHECK(AIBuildingNominationScore(object, 19, 500, queueCaller) == 500);
+    policy.nominations[0].queueDeltaQ8 = 150;
+    CHECK(AIBuildingNominationScore(object, 19, 500, queueCaller) == 650);
+    CHECK(AIBuildingNominationScore(object, 19, 500, filteredQueueCaller) == 650);
+    CHECK(AIBuildingNominationScore(object, 19, 500, nominationCaller) == 600);
+    CHECK(AIBuildingNominationScore(object, 19, 500, nullptr) == 500);
+    CHECK(AIBuildingNominationScore(object, 18, 500, queueCaller) == 500);
+    CHECK(AIBuildingNominationScore(object, 19, INT_MAX - 1, queueCaller) == INT_MAX - 1);
+    CHECK(l_nomination_receipt(asLua(exactBuilding)) == 1 && strstr(test_json, "\"queueComparisons\":3") &&
+        strstr(test_json, "\"queueWrites\":2"));
+    CHECK(l_nomination_status(nullptr) == 1 && strstr(test_json, "\"firstQueue\":[1,7,19,500,650]"));
+    queue_nomination_ready = false;
+    CHECK(AIBuildingNominationScore(object, 19, 500, queueCaller) == 500);
+    CHECK(AIBuildingNominationScore(object, 19, 500, nominationCaller) == 600);
+    staging.nominationCount = 0;
+    staging.allowed[1] = true;
+    staging_valid = true;
+    int combinedPreference[]{1, 7, 19, 100, 150};
+    CHECK(l_nomination_queue_bid(asLua(combinedPreference)) == 1 && test_integer == 0);
+    queue_nomination_ready = true;
+    CHECK(l_nomination_queue_bid(asLua(combinedPreference)) == 1 && test_integer == 1 &&
+        staging.nominationCount == 1 && staging.nominations[0].queueDeltaQ8 == 150);
     ++exactBuilding[0];
     CHECK(l_nomination_receipt(asLua(exactBuilding)) == 1 && strstr(test_json, "\"staged\":0"));
     repair_ready = true;

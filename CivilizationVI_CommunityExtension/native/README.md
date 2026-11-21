@@ -270,29 +270,45 @@ late matrix and row alias were verified in the
 A changed GameCore requires requalifying ABI, call-site register use and layout.
 The game owns every pointer. Bounds checks alone cannot guarantee lifetime.
 
-## Optional ordinary building nomination
+## Optional building nomination and production fallback
 
-The pinned Windows XP2 selector compares an effective Q8 building score after
-its ordinary prerequisite checks. At RVA `3e49d5`, CE replaces a verified
-five-byte flag restore with a CALL through a near relay. The MASM entry preserves
-volatile registers, replays the flag restore and returns to the untouched
-comparison at `3e49da`. The frame supplies the original caller return and
-flags. Only return `3e160a` with flags 0/0 may receive a bid.
+On Windows Steam XP2 build 26595377 (GameCore SHA 4de40abf), the flag restore
+at RVA 3e4295 precedes the effective Q8 building-score comparison at 3e429a.
+CE installs one instruction call through Runtime. The Win64 shim preserves
+volatile registers, passes the original caller return address, replays the
+flag restore and returns to the original comparison. The game's prerequisites
+and positive-score checks still govern eligibility. Unrecognized callers and
+unsupported instruction bytes retain stock behavior.
 
-Runtime owns the relay and original bytes. Unsupported bytes, unavailable
-near allocation or a failed patch leave this capability unavailable. Runtime
-pins the target module for the process before replacing the instruction, so
-failed restoration cannot strand a call into unloaded code. Context reset
-retires the published policy. The adapter changes one effective score only.
-Cached values, accepted offers
-and production arbitration keep their native values.
+The ordinary caller at 3e0ec5 can nominate a building for prerequisite
+preparation or a construction contract. Its preference changes that
+comparison. It leaves the cached value used by the contract and purchase
+routes intact. QueueNextBuild also calls the same selector at 3e7d57 and
+3e7e59 (returns 3e7d5c and 3e7e5e). Both require an immediately buildable
+item. The latter enables an additional building-class filter. These paths
+converge before the regular admitted-contract check. If the queue falls
+through, the winning building's effective score can then compete against
+unit and project scores. CE leaves those competing values and the contract
+gate untouched.
 
-`CE_AIBuildingNominationBid(player, city, building, deltaQ8)` stages a positive
-preference inside the existing Begin/Allow/Commit publication. The cap is
-512 score units (131,072 Q8). The strongest duplicate wins. Nonpositive base
-scores and arithmetic overflow are preserved. `CE_AIBuildingNominationStatus()`
-reports readiness, the cap and the first applied bid in a publication.
-The data and economic policy belong to the calling mod.
+CE_AIBuildingNominationBid(player, city, building, deltaQ8) stages the
+ordinary preference using Begin/Allow/Commit as before.
+CE_AIBuildingNominationQueueBid(player, city, building, deltaQ8, queueDeltaQ8)
+can stage separate preferences for the two consumers in the same entry.
+A zero disables the corresponding consumer. Each positive preference is
+capped at 131,072 Q8. Duplicate entries keep the strongest independent
+value, so opting a city/building into the queue cannot promote a larger
+ordinary preference there. Both consumers preserve nonpositive and
+overflowing scores.
+
+The queue capability verifies both direct CALL targets as part of hook
+installation. Failure of this optional fingerprint leaves the qualified
+ordinary channel available. CE_AIBuildingNominationStatus reports this
+as queueReady, with queueChanged and firstQueue for the current
+publication. CE_AIBuildingNominationReceipt reports per-key
+queueComparisons and queueWrites alongside the existing ordinary
+counters. A queue write is a comparison observation. The mod must
+inspect the actual queue or completed building for follow-through.
 
 ## Existing project integration
 
@@ -448,7 +464,7 @@ try {
 } finally { Pop-Location }
 ```
 
-Expected results are 265 district-score checks and four hook-group checks.
+Expected results are 278 district-score checks and four hook-group checks.
 The instruction-call check exercises byte refusal, near-relay delivery and
 restoration with an executable synthetic caller.
 The three failure-path diagnostics are expected in the isolated host.
